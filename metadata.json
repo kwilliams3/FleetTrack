@@ -1,0 +1,6 @@
+{
+  "name": "Gestion de Flotte Automobile",
+  "description": "Application complète de suivi et de gestion de flotte de véhicules, chauffeurs, versements journaliers, dépenses, documents administratifs et rentabilité.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
