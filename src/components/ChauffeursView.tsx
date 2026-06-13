@@ -671,7 +671,7 @@ export default function ChauffeursView({
                           <Car className="h-4 w-4 text-amber-500" />
                           <div>
                             <p className="text-xs font-bold">{assignedV.marque} {assignedV.modele}</p>
-                            <span className="text-[10px] text-slate-400 font-mono">{assignedV.matricule}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{assignedV.immatriculation}</span>
                           </div>
                         </div>
                         <span className="text-[10px] font-bold bg-amber-500 text-slate-950 px-2.5 py-0.5 rounded-full">

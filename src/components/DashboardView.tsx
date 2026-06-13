@@ -557,14 +557,6 @@ export default function DashboardView({
                   <Wrench className="h-4 w-4 text-amber-500" />
                   <span>Enregistrer une Dépense Flotte</span>
                 </button>
-                <button
-                  onClick={onLogActivity}
-                  className="bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 px-4 py-2 rounded-xl text-xs font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer shadow-xs"
-                  id="btn-adm-activity"
-                >
-                  <CalendarCheck className="h-4 w-4 text-emerald-500" />
-                  <span>Inscrire Présence / Activité</span>
-                </button>
               </>
             ) : (
               <div className="bg-emerald-500/10 text-emerald-400 text-xs px-3.5 py-2 rounded-xl border border-emerald-500/20 flex items-center space-x-2 select-none">

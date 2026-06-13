@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { 
   Plus, Check, X, Wallet, ShieldAlert, AlertTriangle, Calendar, Filter, 
-  Clock, Download, RefreshCw, FileText, Eye
+  Clock, Download, RefreshCw, FileText, Eye, HelpCircle, Tag, MessageSquare
 } from "lucide-react";
 
 interface VersementsViewProps {
@@ -33,9 +33,11 @@ export default function VersementsView({
   const [filterStatut, setFilterStatut] = useState("all");
   const [filterPayMethod, setFilterPayMethod] = useState("all");
 
-  // Rejection state
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [motifRefus, setMotifRefus] = useState("");
+  // Decision modal state
+  const [decisionModalOpen, setDecisionModalOpen] = useState(false);
+  const [decisionTargetId, setDecisionTargetId] = useState<string | null>(null);
+  const [decisionValue, setDecisionValue] = useState<'APPROVE' | 'REJECT' | null>("APPROVE");
+  const [decisionObservation, setDecisionObservation] = useState("");
 
   // Payment Form State
   const [formVehiculeId, setFormVehiculeId] = useState("");
@@ -93,15 +95,22 @@ export default function VersementsView({
     setIsModalOpen(false);
   };
 
-  // Reject confirmation
-  const handleRejectSubmit = (id: string) => {
-    if (!motifRefus.trim()) {
-      alert("Spécifiez un motif de refus.");
+  // Decision modal confirmation
+  const handleConfirmDecision = () => {
+    if (!decisionTargetId) return;
+    if (!decisionValue) {
+      alert("Veuillez choisir une décision.");
       return;
     }
-    onValidatePayment(id, 'REJECT', motifRefus);
-    setRejectingId(null);
-    setMotifRefus("");
+    if (decisionValue === "REJECT" && !decisionObservation.trim()) {
+      alert("Le motif de la décision es obligatoire pour un rejet.");
+      return;
+    }
+
+    onValidatePayment(decisionTargetId, decisionValue, decisionObservation);
+    setDecisionModalOpen(false);
+    setDecisionTargetId(null);
+    setDecisionObservation("");
   };
 
   // Filter computation
@@ -436,54 +445,22 @@ export default function VersementsView({
                           <span>Détails</span>
                         </button>
 
-                        {/* If status is "Pending" and current user is MANAGER, show verification queue */}
+                        {/* If status is "Pending" and current user is MANAGER, show decision trigger button */}
                         {p.statut === "En attente" && isManager ? (
-                          <div className="flex items-center justify-end space-x-1.5 font-sans">
-                            {rejectingId === p.id ? (
-                              <div className="flex items-center space-x-1.5 animate-fade-in w-full max-w-[200px]">
-                                <input
-                                  type="text"
-                                  placeholder="Motif de refus..."
-                                  value={motifRefus}
-                                  onChange={(e) => setMotifRefus(e.target.value)}
-                                  className="border border-rose-300 rounded px-1.5 py-1 text-[10px] font-sans w-full focus:outline-none bg-white text-slate-900"
-                                />
-                                <button
-                                  onClick={() => handleRejectSubmit(p.id)}
-                                  className="bg-rose-500 text-white rounded p-1 hover:bg-rose-600 cursor-pointer"
-                                  title="Valider Refus"
-                                >
-                                  <Check className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => setRejectingId(null)}
-                                  className="bg-slate-100 text-slate-400 rounded p-1 hover:bg-slate-200 cursor-pointer"
-                                  title="Annuler"
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => onValidatePayment(p.id, 'APPROVE')}
-                                  className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-2 py-1 rounded text-[10px] font-bold flex items-center space-x-0.5 cursor-pointer"
-                                  id={`btn-approve-${p.id}`}
-                                >
-                                  <Check className="h-3.5 w-3.5" />
-                                  <span>Approuver</span>
-                                </button>
-                                <button
-                                  onClick={() => setRejectingId(p.id)}
-                                  className="bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 px-2 py-1 rounded text-[10px] font-bold flex items-center space-x-0.5 cursor-pointer"
-                                  id={`btn-reject-${p.id}`}
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                  <span>Refuser</span>
-                                </button>
-                              </>
-                            )}
-                          </div>
+                          <button
+                            onClick={() => {
+                              setDecisionTargetId(p.id);
+                              setDecisionValue("APPROVE");
+                              setDecisionObservation("");
+                              setDecisionModalOpen(true);
+                            }}
+                            className="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-sans text-[10px] font-bold py-1 px-2.5 rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
+                            title="Prendre une décision de validation"
+                            id={`btn-decision-${p.id}`}
+                          >
+                            <RefreshCw className="h-3 w-3 text-amber-600 animate-spin-hover" />
+                            <span>Statut</span>
+                          </button>
                         ) : (
                           <div className="space-y-0.5">
                             <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
@@ -778,6 +755,133 @@ export default function VersementsView({
               >
                 Fermer
               </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================== */}
+      {/* MODAL: VALIDER OU REJETER LA DEMANDE (CUSTOM STATUT)        */}
+      {/* ========================================================== */}
+      {decisionModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/75 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-sans">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-scale-up text-left">
+            
+            {/* Upper spacing & Center icon as shown in image */}
+            <div className="pt-8 pb-3 px-6 flex flex-col items-center border-b border-slate-50">
+              <div className="h-16 w-16 bg-amber-500 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/20 text-white mb-4">
+                <span className="text-3xl font-extrabold font-sans">?</span>
+              </div>
+              <h2 className="text-lg font-bold text-slate-800 text-center">
+                Valider ou rejeter la demande
+              </h2>
+            </div>
+
+            {/* Content Body */}
+            <div className="p-6 space-y-5">
+              
+              {/* Decision Section */}
+              <div className="space-y-2">
+                <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-600">
+                  <Tag className="h-3.5 w-3.5 text-indigo-505" />
+                  <span>Décision <span className="text-rose-500">*</span></span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Clickable Card: Accepter */}
+                  <button
+                    type="button"
+                    onClick={() => setDecisionValue("APPROVE")}
+                    className={`flex items-center space-x-2.5 p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                      decisionValue === "APPROVE"
+                        ? "border-indigo-600 bg-indigo-50/10 ring-2 ring-indigo-500/15"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center shrink-0 ${
+                      decisionValue === "APPROVE" ? "border-indigo-600 animate-pulse-subtle" : "border-slate-300"
+                    }`}>
+                      {decisionValue === "APPROVE" && (
+                        <div className="h-2 w-2 rounded-full bg-indigo-600" />
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-1 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
+                      <span className="bg-emerald-500 text-white h-3.5 w-3.5 rounded-full flex items-center justify-center text-[8px] font-extrabold">✓</span>
+                      <span>Accepter</span>
+                    </div>
+                  </button>
+
+                  {/* Clickable Card: Rejeter */}
+                  <button
+                    type="button"
+                    onClick={() => setDecisionValue("REJECT")}
+                    className={`flex items-center space-x-2.5 p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                      decisionValue === "REJECT"
+                        ? "border-rose-600 bg-rose-50/10 ring-2 ring-rose-500/15"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center shrink-0 ${
+                      decisionValue === "REJECT" ? "border-rose-600 animate-pulse-subtle" : "border-slate-300"
+                    }`}>
+                      {decisionValue === "REJECT" && (
+                        <div className="h-2 w-2 rounded-full bg-rose-600" />
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-1 bg-rose-50 text-rose-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
+                      <span className="bg-rose-500 text-white h-3.5 w-3.5 rounded-full flex items-center justify-center text-[8px] font-extrabold">✗</span>
+                      <span>Rejeter</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Observation Section */}
+              <div className="space-y-2">
+                <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-600">
+                  <MessageSquare className="h-3.5 w-3.5 text-indigo-505" />
+                  <span>Observation</span>
+                </div>
+                <div className="relative">
+                  <textarea
+                    rows={4}
+                    placeholder="Motif de la décision (obligatoire pour rejet)..."
+                    value={decisionObservation}
+                    onChange={(e) => setDecisionObservation(e.target.value)}
+                    className="w-full text-xs font-medium text-slate-800 placeholder-slate-400 bg-white border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 resize-none min-h-[100px]"
+                  />
+                  <div className="absolute bottom-2 right-2 flex flex-col justify-end items-end pointer-events-none opacity-20">
+                    <svg width="8" height="8" viewBox="0 0 8 8" className="text-slate-900 fill-current">
+                      <path d="M6 0 L8 0 L8 8 L0 8 L0 6 L4 6 L4 4 L6 4 Z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions Footer Container */}
+              <div className="flex justify-end items-center space-x-2.5 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDecisionModalOpen(false);
+                    setDecisionTargetId(null);
+                  }}
+                  className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold px-4 py-2 rounded-xl transition-all flex items-center space-x-1 cursor-pointer"
+                >
+                  <X className="h-3.5 w-3.5 animate-pulse-subtle" />
+                  <span>Annuler</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDecision}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all flex items-center space-x-1 cursor-pointer shadow-md shadow-indigo-600/10"
+                >
+                  <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+                  <span>Confirmer</span>
+                </button>
+              </div>
+
             </div>
 
           </div>
