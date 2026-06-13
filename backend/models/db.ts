@@ -30,37 +30,61 @@ export const INITIAL_DATABASE: AppDatabase = {
 
 export function readDB(): AppDatabase {
   try {
-    if (fs.existsSync(DB_FILE)) {
-      const payload = fs.readFileSync(DB_FILE, "utf-8");
-      const dbInstance: AppDatabase = JSON.parse(payload);
-      
-      const now = new Date("2026-06-12");
-      dbInstance.vehicles.forEach(vehicle => {
-        Object.keys(vehicle.documents).forEach((key) => {
-          const doc = (vehicle.documents as any)[key] as DocumentInfo;
-          if (doc) {
-            const expDate = new Date(doc.dateExpiration);
-            const diffTime = expDate.getTime() - now.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            if (diffDays < 0) {
-              doc.statut = 'expire';
-            } else if (diffDays <= 30) {
-              doc.statut = 'expirant';
-            } else {
-              doc.statut = 'valide';
-            }
-          }
-        });
-      });
-      return dbInstance;
+    if (!fs.existsSync(DB_FILE)) {
+      writeDB(INITIAL_DATABASE);
+      return INITIAL_DATABASE;
     }
+
+    const payload = fs.readFileSync(DB_FILE, "utf-8");
+    if (!payload.trim()) {
+      return INITIAL_DATABASE;
+    }
+
+    const dbInstance: AppDatabase = JSON.parse(payload);
+    
+    // Ensure all tables exist as arrays
+    if (!dbInstance.users) dbInstance.users = [];
+    if (!dbInstance.vehicles) dbInstance.vehicles = [];
+    if (!dbInstance.chauffeurs) dbInstance.chauffeurs = [];
+    if (!dbInstance.assignments) dbInstance.assignments = [];
+    if (!dbInstance.activities) dbInstance.activities = [];
+    if (!dbInstance.payments) dbInstance.payments = [];
+    if (!dbInstance.expenses) dbInstance.expenses = [];
+
+    const now = new Date("2026-06-12");
+    
+    dbInstance.vehicles.forEach(vehicle => {
+      try {
+        if (vehicle && vehicle.documents) {
+          Object.keys(vehicle.documents).forEach((key) => {
+            const doc = (vehicle.documents as any)[key] as DocumentInfo;
+            if (doc && doc.dateExpiration) {
+              const expDate = new Date(doc.dateExpiration);
+              if (!isNaN(expDate.getTime())) {
+                const diffTime = expDate.getTime() - now.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays < 0) {
+                  doc.statut = 'expire';
+                } else if (diffDays <= 30) {
+                  doc.statut = 'expirant';
+                } else {
+                  doc.statut = 'valide';
+                }
+              }
+            }
+          });
+        }
+      } catch (innerErr) {
+        console.error("Erreur d'analyse des documents d'un véhicule :", innerErr);
+      }
+    });
+
+    return dbInstance;
   } catch (err) {
-    console.error("Erreur de lecture de la base JSON, utilisation de l'init :", err);
+    console.error("Erreur de lecture de la base JSON :", err);
+    return INITIAL_DATABASE;
   }
-  
-  writeDB(INITIAL_DATABASE);
-  return INITIAL_DATABASE;
 }
 
 export function writeDB(data: AppDatabase) {
