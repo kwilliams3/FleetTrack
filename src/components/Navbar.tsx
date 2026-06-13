@@ -60,15 +60,6 @@ export default function Navbar({ users, currentUser, onUserChange, onResetDb, on
               </div>
             </div>
 
-            {/* Logout triggered here */}
-            <button
-              onClick={onLogout}
-              title="Se déconnecter de l'application"
-              className="p-1.5 text-rose-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors flex items-center space-x-1.5 cursor-pointer"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="text-xs hidden lg:inline font-sans font-semibold">Quitter</span>
-            </button>
           </div>
         </div>
       </div>

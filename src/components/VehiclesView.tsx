@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Vehicle, Chauffeur, AffectationHistory, User } from "../types";
 import { 
   Plus, Edit2, Trash2, Calendar, ShieldCheck, FileText, AlertTriangle, 
-  HelpCircle, UserCheck, X, Check, ArrowRightLeft, Shield 
+  HelpCircle, UserCheck, X, Check, ArrowRightLeft, Shield, Clock, Eye 
 } from "lucide-react";
 
 interface VehiclesViewProps {
@@ -33,6 +33,9 @@ export default function VehiclesView({
   const [selectedVehForAssign, setSelectedVehForAssign] = useState<Vehicle | null>(null);
   const [assignChauffeurId, setAssignChauffeurId] = useState("");
   const [assignRemark, setAssignRemark] = useState("");
+
+  // Vehicle detailed view state
+  const [selectedVehicleForDetail, setSelectedVehicleForDetail] = useState<Vehicle | null>(null);
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -201,6 +204,8 @@ export default function VehiclesView({
     onAssignChauffeur(selectedVehForAssign.id, assignChauffeurId, assignRemark);
     setIsAssignModalOpen(false);
   };
+
+
 
   // Currency Converter helper
   const formatFCFA = (val: number) => {
@@ -405,36 +410,64 @@ export default function VehiclesView({
                   <span className="text-sm font-bold text-slate-900">{formatFCFA(v.montantJournalier)} / jour</span>
                 </div>
 
-                {isManager && (
-                  <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="pt-1 font-sans">
+                  {isManager ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleOpenAssign(v)}
+                        className="bg-slate-50 border border-slate-200/80 hover:bg-slate-100 hover:text-slate-900 text-slate-700 text-[10.5px] font-bold py-1.5 px-2 rounded-lg transition-colors flex items-center justify-center space-x-1 cursor-pointer"
+                        title="Affecter Chauffeur"
+                        id={`btn-asg-veh-${v.id}`}
+                      >
+                        <ArrowRightLeft className="h-3 w-3 text-amber-500 shrink-0" />
+                        <span>Affecter</span>
+                      </button>
+
+                      <button
+                        onClick={() => setSelectedVehicleForDetail(v)}
+                        className="bg-slate-50 border border-slate-200/80 hover:bg-slate-100 hover:text-slate-900 text-slate-700 text-[10.5px] font-bold py-1.5 px-2 rounded-lg transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+                        title="Voir les détails complets"
+                        id={`btn-det-veh-${v.id}`}
+                      >
+                        <Eye className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                        <span>Détails</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenEdit(v)}
+                        className="bg-slate-50 border border-slate-200/80 hover:bg-slate-100 hover:text-slate-900 text-slate-700 text-[10.5px] font-bold py-1.5 px-2 rounded-lg transition-colors flex items-center justify-center space-x-1 cursor-pointer"
+                        title="Modifier Véhicule"
+                        id={`btn-edit-veh-${v.id}`}
+                      >
+                        <Edit2 className="h-3 w-3 text-blue-500 shrink-0" />
+                        <span>Modifier</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (confirm(`Confirmez-vous la suppression définitive du véhicule ${v.immatriculation} ?`)) {
+                            onDeleteVehicle(v.id);
+                          }
+                        }}
+                        className="bg-slate-50 border border-slate-200/80 hover:bg-rose-50 hover:text-rose-700 text-slate-700 text-[10.5px] font-bold py-1.5 px-2 rounded-lg transition-colors flex items-center justify-center space-x-1 cursor-pointer"
+                        title="Supprimer Véhicule"
+                        id={`btn-del-veh-${v.id}`}
+                      >
+                        <Trash2 className="h-3 w-3 text-rose-500 shrink-0" />
+                        <span>Supprimer</span>
+                      </button>
+                    </div>
+                  ) : (
                     <button
-                      onClick={() => handleOpenAssign(v)}
-                      title="Affecter Chauffeur"
-                      className="bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 text-slate-700 text-[10px] font-bold py-1.5 px-1 rounded-lg transition-colors flex items-center justify-center space-x-1"
+                      onClick={() => setSelectedVehicleForDetail(v)}
+                      className="w-full bg-slate-50 border border-slate-200/80 hover:bg-slate-100 hover:text-slate-900 text-slate-705 text-[10.5px] font-bold py-2 px-3 rounded-lg transition-colors flex items-center justify-center space-x-1.5 cursor-pointer text-center"
+                      id={`btn-det-veh-user-${v.id}`}
                     >
-                      <ArrowRightLeft className="h-3 w-3 text-amber-500" />
-                      <span>Affecter</span>
+                      <Eye className="h-4 w-4 text-indigo-500 shrink-0" />
+                      <span>Détails du Véhicule</span>
                     </button>
-                    <button
-                      onClick={() => handleOpenEdit(v)}
-                      className="bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 text-slate-700 text-[10px] font-bold py-1.5 px-1 rounded-lg transition-colors flex items-center justify-center space-x-1"
-                    >
-                      <Edit2 className="h-3 w-3 text-blue-500" />
-                      <span>Modifier</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm(`Confirmez-vous la suppression définitive du véhicule ${v.immatriculation} ?`)) {
-                          onDeleteVehicle(v.id);
-                        }
-                      }}
-                      className="bg-slate-50 border border-slate-200 hover:bg-rose-50 hover:text-rose-700 text-slate-700 text-[10px] font-bold py-1.5 px-1 rounded-lg transition-colors flex items-center justify-center space-x-1"
-                    >
-                      <Trash2 className="h-3 w-3 text-rose-500" />
-                      <span>Supprimer</span>
-                    </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -843,6 +876,125 @@ export default function VehiclesView({
         </div>
       )}
 
-    </div>
-  );
-}
+      {/* ========================================================== */}
+      {/* MODAL: COMPREHENSIVE VEHICLE ASSIGNMENTS HISTORY           */}
+      {/* ========================================================== */}
+      {isHistoryModalOpen && selectedVehForHistory && (
+        <div className="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-sans">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-2xl overflow-hidden">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center space-x-2">
+                <Clock className="h-4 w-4 text-indigo-500" />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    Historique des Affectations du Véhicule
+                  </h2>
+                  <p className="text-[10px] text-slate-450 font-mono">
+                    {selectedVehForHistory.marque} {selectedVehForHistory.modele} • {selectedVehForHistory.immatriculation}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsHistoryModalOpen(false);
+                  setSelectedVehForHistory(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 bg-slate-100 p-1 rounded-full cursor-pointer"
+                title="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* List & Details body */}
+            <div className="p-6 max-h-[380px] overflow-y-auto space-y-4">
+              {(() => {
+                const list = assignments
+                  .filter(a => a.vehiculeId === selectedVehForHistory.id)
+                  .sort((a, b) => b.dateDebut.localeCompare(a.dateDebut));
+
+                if (list.length === 0) {
+                  return (
+                    <div className="py-12 text-center text-slate-400 italic">
+                      <HelpCircle className="h-10 w-10 text-slate-350 mx-auto mb-2" />
+                      <p className="text-xs">Aucune affectation passée ou présente enregistrée pour ce véhicule.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {list.map((a) => {
+                      const isActive = a.statut === "En cours";
+                      return (
+                        <div 
+                          key={a.id} 
+                          className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-start justify-between gap-3 ${
+                            isActive 
+                              ? 'bg-emerald-50/20 border-emerald-200' 
+                              : 'bg-slate-50/50 border-slate-200/50'
+                          }`}
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2 flex-wrap">
+                              <span className="text-xs font-bold text-slate-800">
+                                {a.nomChauffeur}
+                              </span>
+                              <span className={`px-2 py-0.25 rounded-full font-bold text-[9px] uppercase tracking-wide ${
+                                isActive 
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                                  : 'bg-slate-150 text-slate-500'
+                              }`}>
+                                {isActive ? "Actif" : "Historique"}
+                              </span>
+                            </div>
+                            
+                            {a.remarque && (
+                              <p className="text-[11px] text-slate-500 font-sans italic pt-0.5 leading-normal">
+                                Remarque: "{a.remarque}"
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="text-[10.5px] font-mono text-slate-500 text-left sm:text-right shrink-0 space-y-0.5 self-start">
+                            <div className="flex sm:justify-end items-center space-x-1">
+                              <span className="text-slate-400">Début :</span>
+                              <span className="font-semibold text-slate-700">{a.dateDebut}</span>
+                            </div>
+                            <div className="flex sm:justify-end items-center space-x-1">
+                              <span className="text-slate-400">Fin :</span>
+                              <span className="font-semibold text-slate-700">{a.dateFin || "Présent"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3.5 bg-slate-50/50 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsHistoryModalOpen(false);
+                  setSelectedVehForHistory(null);
+                }}
+                className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-amber-500 text-xs font-bold px-4 py-2 rounded-lg cursor-pointer transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Existing closing elements */}
+      </div>
+    );
+  }

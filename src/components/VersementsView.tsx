@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { 
   Plus, Check, X, Wallet, ShieldAlert, AlertTriangle, Calendar, Filter, 
-  Clock, Download, RefreshCw, FileText
+  Clock, Download, RefreshCw, FileText, Eye
 } from "lucide-react";
 
 interface VersementsViewProps {
@@ -28,6 +28,7 @@ export default function VersementsView({
   const isDriver = false;
   const associatedDriver = undefined;
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPaymentForDetail, setSelectedPaymentForDetail] = useState<Versement | null>(null);
   const [searchChauffeur, setSearchChauffeur] = useState("");
   const [filterStatut, setFilterStatut] = useState("all");
   const [filterPayMethod, setFilterPayMethod] = useState("all");
@@ -171,12 +172,16 @@ export default function VersementsView({
       const count = dayPayments.length;
       const rate = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 100;
 
+      const formatPDFValue = (val: number) => {
+        return `${val.toLocaleString("fr-FR").replace(/[\u202f\u00a0\s]/g, " ")} FCFA`;
+      };
+
       return [
         date,
         `${count} versement(s)`,
-        `${totalExpected.toLocaleString("fr-FR")} FCFA`,
-        `${totalPaid.toLocaleString("fr-FR")} FCFA`,
-        `${totalEcart.toLocaleString("fr-FR")} FCFA`,
+        formatPDFValue(totalExpected),
+        formatPDFValue(totalPaid),
+        formatPDFValue(totalEcart),
         `${rate}%`
       ];
     });
@@ -213,13 +218,17 @@ export default function VersementsView({
     const detailedPayments = filteredPayments.filter(p => last5Dates.includes(p.date))
       .sort((a, b) => b.date.localeCompare(a.date));
 
+    const formatPDFDetailed = (val: number) => {
+      return `${val.toLocaleString("fr-FR").replace(/[\u202f\u00a0\s]/g, " ")} FCFA`;
+    };
+
     const detailedRows = detailedPayments.map(p => [
       p.date,
       p.matricule,
       p.nomChauffeur,
-      `${p.montantAttendu.toLocaleString("fr-FR")} FCFA`,
-      `${p.montantVerse.toLocaleString("fr-FR")} FCFA`,
-      `${p.ecart.toLocaleString("fr-FR")} FCFA`,
+      formatPDFDetailed(p.montantAttendu),
+      formatPDFDetailed(p.montantVerse),
+      formatPDFDetailed(p.ecart),
       p.statut
     ]);
 
@@ -416,70 +425,81 @@ export default function VersementsView({
 
                     {/* Status / Administration action blocks */}
                     <td className="py-3.5 px-5 text-right font-sans">
-                      
-                      {/* If status is "Pending" and current user is MANAGER, show verification queue */}
-                      {p.statut === "En attente" && isManager ? (
-                        <div className="flex items-center justify-end space-x-1.5">
-                          {rejectingId === p.id ? (
-                            <div className="flex items-center space-x-1.5 animate-fade-in w-full max-w-[200px]">
-                              <input
-                                type="text"
-                                placeholder="Motif de refus..."
-                                value={motifRefus}
-                                onChange={(e) => setMotifRefus(e.target.value)}
-                                className="border border-rose-300 rounded px-1.5 py-1 text-[10px] font-sans w-full focus:outline-none"
-                              />
-                              <button
-                                onClick={() => handleRejectSubmit(p.id)}
-                                className="bg-rose-500 text-white rounded p-1 hover:bg-rose-600"
-                                title="Valider Refus"
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                onClick={() => setRejectingId(null)}
-                                className="bg-slate-100 text-slate-400 rounded p-1 hover:bg-slate-200"
-                                title="Annuler"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => onValidatePayment(p.id, 'APPROVE')}
-                                className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-2 py-1 rounded text-[10px] font-bold flex items-center space-x-0.5"
-                                id={`btn-approve-${p.id}`}
-                              >
-                                <Check className="h-3.5 w-3.5" />
-                                <span>Approuver</span>
-                              </button>
-                              <button
-                                onClick={() => setRejectingId(p.id)}
-                                className="bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 px-2 py-1 rounded text-[10px] font-bold flex items-center space-x-0.5"
-                                id={`btn-reject-${p.id}`}
-                              >
-                                <X className="h-3.5 w-3.5" />
-                                <span>Refuser</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="space-y-0.5">
-                          <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                            p.statut === "Validé" ? "bg-emerald-50 text-emerald-700" :
-                            p.statut === "Refusé" ? "bg-rose-50 text-rose-700 font-bold" : "bg-amber-50 text-amber-700"
-                          }`}>
-                            {p.statut}
-                          </span>
-                          {p.statut === "Refusé" && p.motifRefus && (
-                            <span className="text-[10px] text-rose-500 italic block leading-none opacity-80" title={p.motifRefus}>
-                              Refusé: "{p.motifRefus.substring(0, 24)}..."
+                      <div className="flex items-center justify-end space-x-2">
+                        <button
+                          onClick={() => setSelectedPaymentForDetail(p)}
+                          className="bg-slate-100 hover:bg-slate-200 border border-slate-205 text-slate-700 hover:text-slate-950 font-sans text-[10px] font-bold py-1 px-2.5 rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
+                          title="Voir le détail complet"
+                          id={`btn-det-pym-${p.id}`}
+                        >
+                          <Eye className="h-3 w-3 text-indigo-500" />
+                          <span>Détails</span>
+                        </button>
+
+                        {/* If status is "Pending" and current user is MANAGER, show verification queue */}
+                        {p.statut === "En attente" && isManager ? (
+                          <div className="flex items-center justify-end space-x-1.5 font-sans">
+                            {rejectingId === p.id ? (
+                              <div className="flex items-center space-x-1.5 animate-fade-in w-full max-w-[200px]">
+                                <input
+                                  type="text"
+                                  placeholder="Motif de refus..."
+                                  value={motifRefus}
+                                  onChange={(e) => setMotifRefus(e.target.value)}
+                                  className="border border-rose-300 rounded px-1.5 py-1 text-[10px] font-sans w-full focus:outline-none bg-white text-slate-900"
+                                />
+                                <button
+                                  onClick={() => handleRejectSubmit(p.id)}
+                                  className="bg-rose-500 text-white rounded p-1 hover:bg-rose-600 cursor-pointer"
+                                  title="Valider Refus"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setRejectingId(null)}
+                                  className="bg-slate-100 text-slate-400 rounded p-1 hover:bg-slate-200 cursor-pointer"
+                                  title="Annuler"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => onValidatePayment(p.id, 'APPROVE')}
+                                  className="bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 px-2 py-1 rounded text-[10px] font-bold flex items-center space-x-0.5 cursor-pointer"
+                                  id={`btn-approve-${p.id}`}
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                  <span>Approuver</span>
+                                </button>
+                                <button
+                                  onClick={() => setRejectingId(p.id)}
+                                  className="bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 px-2 py-1 rounded text-[10px] font-bold flex items-center space-x-0.5 cursor-pointer"
+                                  id={`btn-reject-${p.id}`}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                  <span>Refuser</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-0.5">
+                            <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                              p.statut === "Validé" ? "bg-emerald-50 text-emerald-700" :
+                              p.statut === "Refusé" ? "bg-rose-50 text-rose-700 font-bold" : "bg-amber-50 text-amber-700"
+                            }`}>
+                              {p.statut}
                             </span>
-                          )}
-                        </div>
-                      )}
+                            {p.statut === "Refusé" && p.motifRefus && (
+                              <span className="text-[10px] text-rose-500 italic block leading-none opacity-80" title={p.motifRefus}>
+                                Refusé: "{p.motifRefus.substring(0, 24)}..."
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                     </td>
                   </tr>
@@ -651,6 +671,115 @@ export default function VersementsView({
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================== */}
+      {/* MODAL: COMPREHENSIVE TRANSACTION ROW DETAILS              */}
+      {/* ========================================================== */}
+      {selectedPaymentForDetail && (
+        <div className="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-sans">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-lg overflow-hidden animate-scale-up text-left">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center space-x-2">
+                <Wallet className="h-5 w-5 text-indigo-500" />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    Fiche Détail du Versement
+                  </h2>
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    Transaction ID : {selectedPaymentForDetail.id}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedPaymentForDetail(null)}
+                className="text-slate-400 hover:text-slate-600 bg-slate-100 p-1 rounded-full cursor-pointer"
+                title="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Content body */}
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold font-mono">Date d'enregistrement</span>
+                  <p className="text-xs font-semibold text-slate-800 mt-0.5">{selectedPaymentForDetail.date}</p>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="text-[10px] text-slate-400 uppercase font-bold font-mono">Statut de validation</span>
+                  <div className="mt-1">
+                    <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                      selectedPaymentForDetail.statut === "Validé" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" :
+                      selectedPaymentForDetail.statut === "Refusé" ? "bg-rose-50 text-rose-700 border border-rose-100" : "bg-amber-50 text-amber-700 border border-amber-100"
+                    }`}>
+                      {selectedPaymentForDetail.statut}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border border-slate-100 rounded-xl divide-y divide-slate-100 overflow-hidden">
+                <div className="p-3 flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Véhicule (Matricule)</span>
+                  <span className="font-mono font-bold bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]">
+                    {selectedPaymentForDetail.matricule}
+                  </span>
+                </div>
+                <div className="p-3 flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Chauffeur Declarant</span>
+                  <span className="font-bold text-slate-800">{selectedPaymentForDetail.nomChauffeur}</span>
+                </div>
+                <div className="p-3 flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Montant Attendu</span>
+                  <span className="font-mono text-slate-600">{formatFCFA(selectedPaymentForDetail.montantAttendu)}</span>
+                </div>
+                <div className="p-3 flex justify-between items-center text-xs bg-emerald-50/10">
+                  <span className="text-slate-500 font-bold">Montant Réellement Versé</span>
+                  <span className="font-mono font-bold text-emerald-600 text-sm">{formatFCFA(selectedPaymentForDetail.montantVerse)}</span>
+                </div>
+                <div className="p-3 flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Écart de caisse / Arriéré</span>
+                  <span className={`font-mono font-bold ${selectedPaymentForDetail.ecart > 0 ? "text-rose-600" : "text-slate-400"}`}>
+                    {selectedPaymentForDetail.ecart > 0 ? `-${formatFCFA(selectedPaymentForDetail.ecart)}` : "En règle"}
+                  </span>
+                </div>
+                <div className="p-3 flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Canal de règlement</span>
+                  <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono">
+                    {selectedPaymentForDetail.moyenPaiement}
+                  </span>
+                </div>
+                <div className="p-3 flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Provenance déclaration</span>
+                  <span className="font-medium text-slate-700">{selectedPaymentForDetail.provenance}</span>
+                </div>
+              </div>
+
+              {selectedPaymentForDetail.statut === "Refusé" && selectedPaymentForDetail.motifRefus && (
+                <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl">
+                  <span className="text-[10px] text-rose-800 font-bold uppercase block">Motif de Rejet administratif :</span>
+                  <p className="text-xs text-rose-700 italic mt-0.5">"{selectedPaymentForDetail.motifRefus}"</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3.5 bg-slate-50/50 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentForDetail(null)}
+                className="bg-slate-900 hover:bg-slate-800 text-amber-500 text-xs font-bold px-4 py-2 rounded-lg cursor-pointer transition-colors border border-slate-800"
+              >
+                Fermer
+              </button>
+            </div>
+
           </div>
         </div>
       )}

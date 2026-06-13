@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Chauffeur, Vehicle, User } from "../types";
 import { 
   Plus, Edit2, Trash2, Phone, MapPin, Award, ShieldAlert, CheckCircle2, XCircle, 
-  Car, Eye, HelpCircle, X 
+  Car, Eye, HelpCircle, X, Camera
 } from "lucide-react";
 
 interface ChauffeursViewProps {
@@ -23,6 +23,7 @@ export default function ChauffeursView({
   const isManager = currentUser.role === "MANAGER";
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingChauffeur, setEditingChauffeur] = useState<Chauffeur | null>(null);
+  const [selectedChauffeurForDetail, setSelectedChauffeurForDetail] = useState<Chauffeur | null>(null);
 
   const formatFCFA = (val: number) => {
     return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XAF", maximumFractionDigits: 0 })
@@ -45,6 +46,21 @@ export default function ChauffeursView({
   const [formIsActive, setFormIsActive] = useState(true);
   const [formVehiculeId, setFormVehiculeId] = useState("");
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("La taille de l'image ne doit pas dépasser 5 Mo.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormPhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleOpenAdd = () => {
     setEditingChauffeur(null);
     setFormNom("");
@@ -58,9 +74,8 @@ export default function ChauffeursView({
     fiveYears.setFullYear(fiveYears.getFullYear() + 5);
     setFormExpPermis(fiveYears.toISOString().split("T")[0]);
 
-    // Random avatar
-    const randomId = Math.floor(Math.random() * 70) + 10;
-    setFormPhoto(`https://i.pravatar.cc/150?img=${randomId}`);
+    // Reset photo to blank (optional input)
+    setFormPhoto("");
     setFormIsActive(true);
     setFormVehiculeId("");
 
@@ -279,28 +294,41 @@ export default function ChauffeursView({
                 )}
 
                 {/* Edit Controls */}
-                {isManager && (
-                  <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100/60">
-                    <button
-                      onClick={() => handleOpenEdit(c)}
-                      className="bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 hover:text-slate-900 text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center space-x-1"
-                    >
-                      <Edit2 className="h-3 w-3 text-blue-500" />
-                      <span>Modifier Profil</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm(`Voulez-vous vraiment désactiver ou supprimer définitivement le chauffeur de la flotte (${c.prenom} ${c.nom}) ?`)) {
-                          onDeleteChauffeur(c.id);
-                        }
-                      }}
-                      className="bg-slate-50 border border-slate-200 hover:bg-rose-50 text-slate-700 hover:text-rose-700 text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center space-x-1"
-                    >
-                      <Trash2 className="h-3 w-3 text-rose-500" />
-                      <span>Supprimer</span>
-                    </button>
-                  </div>
-                )}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100/60 font-sans">
+                  <button
+                    onClick={() => setSelectedChauffeurForDetail(c)}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-950 font-bold text-[10px] px-3 py-1.5 rounded-lg border border-slate-205 transition-colors flex items-center space-x-1.5 cursor-pointer"
+                    id={`btn-det-ch-${c.id}`}
+                  >
+                    <Eye className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                    <span>Détails</span>
+                  </button>
+
+                  {isManager && (
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => handleOpenEdit(c)}
+                        className="bg-slate-50 border border-slate-200 hover:bg-slate-150 text-slate-700 hover:text-slate-900 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
+                        id={`btn-edit-ch-${c.id}`}
+                      >
+                        <Edit2 className="h-3 w-3 text-blue-500" />
+                        <span>Modifier</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Voulez-vous vraiment désactiver ou supprimer définitivement le chauffeur de la flotte (${c.prenom} ${c.nom}) ?`)) {
+                            onDeleteChauffeur(c.id);
+                          }
+                        }}
+                        className="bg-slate-50 border border-slate-200 hover:bg-rose-50 text-slate-700 hover:text-rose-700 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
+                        id={`btn-del-ch-${c.id}`}
+                      >
+                        <Trash2 className="h-3 w-3 text-rose-500" />
+                        <span>Supprimer</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
 
               </div>
             </div>
@@ -416,14 +444,46 @@ export default function ChauffeursView({
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs text-slate-600 font-medium">Lien / URL Photo de Profil (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="https://..."
-                  value={formPhoto}
-                  onChange={(e) => setFormPhoto(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-amber-500/50 focus:outline-none w-full text-xs font-mono"
-                />
+                <label className="text-xs text-slate-600 font-medium">Photo de profil (Optionnel)</label>
+                <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/65 flex items-center space-x-3.5">
+                  {formPhoto ? (
+                    <div className="relative">
+                      <img
+                        src={formPhoto}
+                        alt="Profil"
+                        className="h-12 w-12 rounded-full object-cover border border-amber-500 shadow-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormPhoto("")}
+                        className="absolute -top-1 -right-1 bg-rose-600 hover:bg-rose-700 text-white rounded-full p-0.5 cursor-pointer shadow-xs transition-colors"
+                        title="Supprimer la photo"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="h-12 w-12 rounded-full bg-slate-200 border border-slate-300 flex items-center justify-center text-slate-400">
+                      <Camera className="h-6 w-6" />
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-1 text-left">
+                    <label className="inline-flex items-center bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 text-xs font-semibold px-3 py-1.5 rounded-lg cursor-pointer transition-colors shadow-xs">
+                      <Camera className="h-3.5 w-3.5 text-slate-500 mr-1.5" />
+                      <span>Choisir un fichier...</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoChange}
+                        className="hidden"
+                      />
+                    </label>
+                    <p className="text-[9px] text-slate-400 leading-none">
+                      Sélectionnez une image (PNG, JPG, max 5 Mo)
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -492,6 +552,158 @@ export default function ChauffeursView({
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================== */}
+      {/* MODAL: COMPREHENSIVE CHAUFFEUR DETAILS PROFILE             */}
+      {/* ========================================================== */}
+      {selectedChauffeurForDetail && (
+        <div className="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-sans">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-lg overflow-hidden animate-scale-up text-left">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center space-x-2">
+                <Award className="h-5 w-5 text-indigo-500" />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">
+                    Fiche d'identité Chauffeur
+                  </h2>
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    ID Collaborateur : {selectedChauffeurForDetail.id}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedChauffeurForDetail(null)}
+                className="text-slate-400 hover:text-slate-600 bg-slate-100 p-1 rounded-full cursor-pointer"
+                title="Fermer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Content body */}
+            <div className="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
+              
+              {/* Profile card summary */}
+              <div className="flex items-center space-x-4 bg-slate-50 p-4 rounded-2xl border border-slate-150">
+                <div className="h-16 w-16 rounded-full overflow-hidden bg-slate-100 flex-shrink-0 border-2 border-slate-200">
+                  {selectedChauffeurForDetail.photo ? (
+                    <img 
+                      src={selectedChauffeurForDetail.photo} 
+                      alt="Chauffeur photo" 
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center bg-teal-100 text-teal-800 font-extrabold text-xl">
+                      {selectedChauffeurForDetail.prenom[0]}{selectedChauffeurForDetail.nom[0]}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-905">
+                    {selectedChauffeurForDetail.prenom} {selectedChauffeurForDetail.nom}
+                  </h3>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] ${
+                      selectedChauffeurForDetail.isActive ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-slate-100 text-slate-500 border border-slate-200"
+                    }`}>
+                      {selectedChauffeurForDetail.isActive ? "Actif / En Service" : "Inactif / Congé"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Informational grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="border border-slate-100 p-3 rounded-xl">
+                  <span className="text-[10px] text-slate-405 font-mono uppercase block">Téléphone</span>
+                  <a 
+                    href={`tel:${selectedChauffeurForDetail.telephone}`} 
+                    className="text-xs font-bold text-slate-800 hover:text-indigo-600 flex items-center space-x-1 mt-0.5"
+                  >
+                    <Phone className="h-3 w-3 text-slate-400" />
+                    <span>{selectedChauffeurForDetail.telephone}</span>
+                  </a>
+                </div>
+                <div className="border border-slate-100 p-3 rounded-xl">
+                  <span className="text-[10px] text-slate-405 font-mono uppercase block">Adresse / Ville</span>
+                  <div className="text-xs font-semibold text-slate-800 flex items-center space-x-1 mt-0.5">
+                    <MapPin className="h-3 w-3 text-slate-400" />
+                    <span className="truncate">{selectedChauffeurForDetail.adresse || "Douala, Cameroun"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Licence segment */}
+              <div className="bg-amber-50/40 border border-amber-100 p-4 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-amber-800 flex items-center space-x-1">
+                    <Award className="h-3.5 w-3.5 text-amber-600" />
+                    <span>Permis de Conduire</span>
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-405 uppercase block">Numéro de pièces</span>
+                    <span className="font-mono font-bold text-slate-800 text-[11px]">{selectedChauffeurForDetail.numPermis}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-405 uppercase block">Expiration</span>
+                    <span className="font-mono font-bold text-slate-800 text-[11px]">{selectedChauffeurForDetail.expPermis}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vehicle allocation detail */}
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold text-slate-700 block">Affectation du Véhicule</span>
+                {selectedChauffeurForDetail.vehiculeId ? (
+                  (() => {
+                    const assignedV = vehicles.find((v) => v.id === selectedChauffeurForDetail.vehiculeId);
+                    return assignedV ? (
+                      <div className="bg-slate-900 text-white p-3.5 rounded-xl flex items-center justify-between border border-slate-800">
+                        <div className="flex items-center space-x-2">
+                          <Car className="h-4 w-4 text-amber-500" />
+                          <div>
+                            <p className="text-xs font-bold">{assignedV.marque} {assignedV.modele}</p>
+                            <span className="text-[10px] text-slate-400 font-mono">{assignedV.matricule}</span>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold bg-amber-500 text-slate-950 px-2.5 py-0.5 rounded-full">
+                          En possession
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-xl text-xs text-rose-500 italic">
+                        Id véhicule : {selectedChauffeurForDetail.vehiculeId} (Non trouvé)
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl text-xs text-slate-500 italic text-center">
+                    Aucun véhicule n'est assigné à ce chauffeur pour le moment.
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3.5 bg-slate-50/50 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedChauffeurForDetail(null)}
+                className="bg-slate-900 hover:bg-slate-800 text-amber-500 text-xs font-bold px-4 py-2 rounded-lg cursor-pointer transition-colors border border-slate-800"
+              >
+                Fermer
+              </button>
+            </div>
+
           </div>
         </div>
       )}
