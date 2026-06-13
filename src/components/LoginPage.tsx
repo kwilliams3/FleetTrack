@@ -163,31 +163,7 @@ export default function LoginPage({ users, onLogin, onChangePassword }: LoginPag
               </button>
             </form>
 
-            {/* Quick connection help for evaluation */}
-            <div className="pt-4 border-t border-slate-100 space-y-2">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-slate-450">Profils d'accès disponibles :</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
-                <button
-                  type="button"
-                  onClick={() => { setUsername("admin"); setPassword("admin123"); setErrorCode(""); }}
-                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl text-left text-slate-700 cursor-pointer transition-colors"
-                  title="Cliquer pour remplir"
-                >
-                  <p className="font-bold text-slate-900 font-sans">• Administrateur (ADMIN)</p>
-                  <p className="text-[9px] text-slate-500 font-mono mt-0.5">Identifiant : admin<br />Code : admin123</p>
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => { setUsername("manager"); setPassword("manager123"); setErrorCode(""); }}
-                  className="bg-slate-50 hover:bg-slate-100 border border-slate-200 p-2.5 rounded-xl text-left text-slate-700 cursor-pointer transition-colors"
-                  title="Cliquer pour remplir"
-                >
-                  <p className="font-bold text-slate-900 font-sans">• Gestionnaire (MANAGER)</p>
-                  <p className="text-[9px] text-slate-500 font-mono mt-0.5">Identifiant : manager<br />Code : manager123</p>
-                </button>
-              </div>
-            </div>
+
           </div>
         ) : (
           /* FORCED PASSWORD CHANGE MODULE CARD (Mimicking second image exactly) */
