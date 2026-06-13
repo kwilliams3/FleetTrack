@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Règle de sécurité principale : Tout accès client direct est bloqué.
+    // L'ensemble du stockage est géré de manière sécurisée côté serveur par l'API Express.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "entities": {
+    "fleet_data": {
+      "title": "Données de la Flotte",
+      "description": "Structure de document unifiée stockée dans Firestore sous la collection fleet_data pour centraliser les collections.",
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "description": "La liste d'éléments de données décrivant l'entité correspondante (véhicules, chauffeurs, paiements etc.)"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/fleet_data/{collectionKey}": {
+      "schema": "fleet_data",
+      "description": "Chaque clé correspond à un sous-ensemble de la base de données : users, vehicles, chauffeurs, assignments, activities, payments, ou expenses"
+    }
+  }
+}
