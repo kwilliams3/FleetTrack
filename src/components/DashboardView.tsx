@@ -49,7 +49,9 @@ export default function DashboardView({
     const dPayments = payments.filter(p => p.date === d && p.statut === "Validé");
     const dExpenses = expenses.filter(e => e.date === d && e.statut === "Validé");
     
-    const expected = 47000; // static expected revenue as modeled in Recharts
+    // Calculate the dynamic expected value from the database
+    const dPaymentsAll = payments.filter(p => p.date === d);
+    const expected = dPaymentsAll.reduce((sum, p) => sum + p.montantAttendu, 0);
     const collected = dPayments.reduce((sum, p) => sum + p.montantVerse, 0);
     const spent = dExpenses.reduce((sum, e) => sum + e.montant, 0);
     const balance = collected - spent;
@@ -160,7 +162,7 @@ export default function DashboardView({
     doc.setFont("Helvetica", "italic");
     doc.setFontSize(6.5);
     doc.setTextColor(148, 163, 184);
-    doc.text("De 235 000 FCFA attendus", 18, 52);
+    doc.text(`De ${formatFCFA(repTotalExpected)} attendus`, 18, 52);
 
     // Card 2: Depenses
     doc.setFillColor(248, 250, 252);
@@ -443,11 +445,11 @@ export default function DashboardView({
   const rentabilityData = vehicles.map(v => {
     const vPayments = payments
       .filter(p => p.vehiculeId === v.id && p.statut === "Validé")
-      .reduce((sum, p) => sum + p.montantVerse, 0);
+      .reduce((sum, p) => sum + (Number(p.montantVerse) || 0), 0);
       
     const vExpenses = expenses
       .filter(e => e.vehiculeId === v.id && e.statut === "Validé")
-      .reduce((sum, e) => sum + e.montant, 0);
+      .reduce((sum, e) => sum + (Number(e.montant) || 0), 0);
 
     const netProfit = vPayments - vExpenses;
     const activeDriver = chauffeurs.find(c => c.vehiculeId === v.id && c.isActive);
@@ -460,7 +462,7 @@ export default function DashboardView({
       paymentsTotal: vPayments,
       expensesTotal: vExpenses,
       profit: netProfit,
-      rate: vPayments > 0 ? ((netProfit / vPayments) * 100).toFixed(1) : "0"
+      rate: vPayments > 0 && !isNaN(netProfit) && !isNaN(vPayments) ? ((netProfit / vPayments) * 100).toFixed(1) : "0"
     };
   });
 
@@ -469,11 +471,10 @@ export default function DashboardView({
   const last5Days = ["2026-06-08", "2026-06-09", "2026-06-10", "2026-06-11", "2026-06-12"];
   const financialHistoryChart = last5Days.map(dayStr => {
     // Expected on that day (sum of daily rates of assigned vehicles that day)
-    // For demo, we compute based on current expectations or realistic counts
     const dayP = payments.filter(p => p.date === dayStr);
     
-    // Expected is static-ish based on active fleet that day(47000 FCFA)
-    const expected = 47000; 
+    // Dynamic calculation from database
+    const expected = dayP.reduce((sum, p) => sum + p.montantAttendu, 0); 
     const validatedPaid = dayP.filter(p => p.statut === "Validé").reduce((sum, p) => sum + p.montantVerse, 0);
     const pendingPaid = dayP.filter(p => p.statut === "En attente").reduce((sum, p) => sum + p.montantVerse, 0);
     const dayExp = expenses.filter(e => e.date === dayStr && e.statut === "Validé").reduce((sum, e) => sum + e.montant, 0);
@@ -1041,7 +1042,7 @@ export default function DashboardView({
                     <div className="card p-4 rounded-lg border border-slate-200 bg-slate-50">
                       <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Recettes Validées (5j)</h3>
                       <p className="text-lg font-bold text-emerald-600 font-mono mt-1">{formatFCFA(repTotalCollected)}</p>
-                      <span className="text-[10px] text-slate-400 italic">De 235k FCFA attendus</span>
+                      <span className="text-[10px] text-slate-400 italic">De {formatFCFA(repTotalExpected)} attendus</span>
                     </div>
 
                     <div className="card p-4 rounded-lg border border-slate-200 bg-slate-50">

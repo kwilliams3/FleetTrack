@@ -175,11 +175,11 @@ export default function VersementsView({
     // Build summary rows
     const summaryRows = last5Dates.map(date => {
       const dayPayments = filteredPayments.filter(p => p.date === date);
-      const totalExpected = dayPayments.reduce((sum, p) => sum + p.montantAttendu, 0);
-      const totalPaid = dayPayments.reduce((sum, p) => sum + p.montantVerse, 0);
-      const totalEcart = dayPayments.reduce((sum, p) => sum + p.ecart, 0);
+      const totalExpected = dayPayments.reduce((sum, p) => sum + (Number(p.montantAttendu) || 0), 0);
+      const totalPaid = dayPayments.reduce((sum, p) => sum + (Number(p.montantVerse) || 0), 0);
+      const totalEcart = dayPayments.reduce((sum, p) => sum + (Number(p.ecart) || 0), 0);
       const count = dayPayments.length;
-      const rate = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 100;
+      const rate = totalExpected > 0 ? Math.round((totalPaid / totalExpected) * 100) : 0;
 
       const formatPDFValue = (val: number) => {
         return `${val.toLocaleString("fr-FR").replace(/[\u202f\u00a0\s]/g, " ")} FCFA`;
