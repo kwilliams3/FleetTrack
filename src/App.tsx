@@ -13,8 +13,7 @@ import UsersView from "./components/UsersView";
 
 import { 
   LayoutDashboard, Car, Users, Wallet, Wrench, Database, 
-  Calendar, Check, AlertTriangle, X, ShieldAlert, UserCog, LogOut,
-  TrendingUp, Fuel, Clock, CheckCircle, XCircle, AlertCircle
+  Calendar, Check, AlertTriangle, X, ShieldAlert, UserCog, LogOut
 } from "lucide-react";
 
 export default function App() {
@@ -46,7 +45,7 @@ export default function App() {
   const [actVehStatus, setActVehStatus] = useState("Bon état de marche");
 
   // ==========================================
-  // SYNC UTILS: API REQUESTS (Gardé identique)
+  // SYNC UTILS: API REQUESTS
   // ==========================================
   const triggerToast = (msg: string, type: "success" | "error" | "info" = "success") => {
     setToast({ message: msg, type });
@@ -67,6 +66,7 @@ export default function App() {
       setExpenses(data.expenses || []);
       setActivities(data.activities || []);
 
+      // Restore cached session or default to null
       const cached = localStorage.getItem("fleet_user");
       if (cached && data.users && data.users.length > 0) {
         try {
@@ -81,10 +81,11 @@ export default function App() {
           setCurrentUser(null);
         }
       } else {
+        // Keep null if never logged in to mandate LoginPage
         setCurrentUser(null);
       }
     } catch (err) {
-      console.error("Impossible d'accéder au serveur API backend.", err);
+      console.error("Impossible d'accéder au serveur API backend. Vitesse indisponible.", err);
       triggerToast("Erreur lors de la synchronisation avec le serveur", "error");
     } finally {
       setLoading(false);
@@ -121,8 +122,7 @@ export default function App() {
     }
   };
 
-  // ... (Toutes les autres fonctions handleSaveVehicle, handleDeleteVehicle, etc. restent identiques)
-  // Pour garder la réponse lisible, je continue avec les fonctions existantes...
+  // Action: Save/Edit vehicle
   const handleSaveVehicle = async (v: Vehicle) => {
     try {
       const res = await fetch("/api/vehicles", {
@@ -142,6 +142,7 @@ export default function App() {
     }
   };
 
+  // Action: Delete vehicle
   const handleDeleteVehicle = async (id: string) => {
     try {
       const res = await fetch(`/api/vehicles/${id}`, { method: "DELETE" });
@@ -155,6 +156,7 @@ export default function App() {
     }
   };
 
+  // Action: Save/Edit Chauffeur
   const handleSaveChauffeur = async (c: Chauffeur) => {
     try {
       const res = await fetch("/api/chauffeurs", {
@@ -172,6 +174,7 @@ export default function App() {
     }
   };
 
+  // Action: Delete Chauffeur
   const handleDeleteChauffeur = async (id: string) => {
     try {
       const res = await fetch(`/api/chauffeurs/${id}`, { method: "DELETE" });
@@ -185,6 +188,7 @@ export default function App() {
     }
   };
 
+  // Action: Affect Chauffeur to vehicle
   const handleAssignChauffeur = async (vehId: string, chauffeurId: string, remark: string) => {
     try {
       const res = await fetch("/api/affectations", {
@@ -202,6 +206,7 @@ export default function App() {
     }
   };
 
+  // Action: Declare payout (Versement)
   const handleAddPayment = async (form: Partial<Versement>) => {
     try {
       const res = await fetch("/api/versements", {
@@ -219,6 +224,7 @@ export default function App() {
     }
   };
 
+  // Action: Validate/Reject Versement
   const handleValidatePayment = async (id: string, action: 'APPROVE' | 'REJECT', motif?: string) => {
     try {
       const res = await fetch("/api/versements/validate", {
@@ -236,6 +242,7 @@ export default function App() {
     }
   };
 
+  // Action: Declare Charge
   const handleAddCharge = async (form: Partial<Charge>) => {
     try {
       const res = await fetch("/api/charges", {
@@ -253,6 +260,7 @@ export default function App() {
     }
   };
 
+  // Action: Approve/Reject Charge
   const handleValidateCharge = async (id: string, action: 'APPROVE' | 'REJECT', motif?: string) => {
     try {
       const res = await fetch("/api/charges/validate", {
@@ -270,6 +278,7 @@ export default function App() {
     }
   };
 
+  // Action: Save/Edit User (Admin Only)
   const handleSaveUser = async (u: Partial<User>) => {
     try {
       const res = await fetch("/api/users", {
@@ -289,6 +298,7 @@ export default function App() {
     }
   };
 
+  // Action: Delete User (Admin Only)
   const handleDeleteUser = async (id: string) => {
     try {
       const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
@@ -304,6 +314,7 @@ export default function App() {
     }
   };
 
+  // Action: Reset User Password (Admin Only / Temporary password)
   const handleResetPassword = async (userId: string, tempPass: string) => {
     try {
       const res = await fetch("/api/users/reset-password", {
@@ -323,6 +334,7 @@ export default function App() {
     }
   };
 
+  // Action: Force change password at first connection
   const handleChangePassword = async (userId: string, newPass: string) => {
     try {
       const res = await fetch("/api/users/change-password", {
@@ -342,6 +354,7 @@ export default function App() {
     }
   };
 
+  // Action: Log driver service presence (Activity)
   const handleSubmitActivity = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!actChauffeurId) {
@@ -375,23 +388,24 @@ export default function App() {
     }
   };
 
+  // Count queues numbers for UI navigation counters (Admins have reviews pending)
   const pendingPaymentsCount = payments.filter(p => p.statut === "En attente").length;
   const pendingExpensesCount = expenses.filter(e => e.statut === "En attente").length;
 
   if (!currentUser) {
     return (
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 min-h-screen">
+      <div className="bg-slate-900 min-h-screen">
         {toast && (
-          <div className="fixed top-6 right-6 z-50 animate-slide-down">
-            <div className={`p-4 rounded-xl border flex items-center space-x-3 shadow-2xl backdrop-blur-sm ${
+          <div className="fixed top-6 right-6 z-50 animate-scale-up">
+            <div className={`p-4 rounded-xl border flex items-center space-x-3 shadow-lg ${
               toast.type === "error" 
-                ? "bg-rose-500/10 border-rose-500/30 text-rose-400" 
+                ? "bg-rose-50 border-rose-200 text-rose-800" 
                 : toast.type === "info" 
-                ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
-                : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                ? "bg-indigo-50 border-indigo-200 text-indigo-800"
+                : "bg-emerald-50 border-emerald-200 text-emerald-800"
             }`}>
-              <div className="h-2 w-2 rounded-full bg-current animate-pulse" />
-              <span className="text-sm font-semibold font-sans">{toast.message}</span>
+              <span className="h-2 w-2 rounded-full bg-current animate-ping" />
+              <span className="text-xs font-semibold font-sans">{toast.message}</span>
             </div>
           </div>
         )}
@@ -401,223 +415,186 @@ export default function App() {
   }
 
   return (
-    <div className="bg-gradient-to-br from-slate-50 via-white to-slate-50 min-h-screen flex flex-col">
+    <div className="bg-slate-50 min-h-screen flex flex-col font-sans text-slate-800">
       
-      {/* Toast Notification Container - Amélioré */}
+      {/* Toast Notification Container */}
       {toast && (
-        <div className="fixed top-24 right-6 z-50 animate-slide-down">
-          <div className={`p-4 rounded-xl border flex items-center space-x-3 shadow-2xl backdrop-blur-sm ${
+        <div className="fixed top-20 right-6 z-50 animate-scale-up">
+          <div className={`p-4 rounded-xl border flex items-center space-x-3 shadow-lg ${
             toast.type === "error" 
-              ? "bg-rose-500/10 border-rose-500/30 text-rose-600" 
+              ? "bg-rose-50 border-rose-200 text-rose-800" 
               : toast.type === "info" 
-              ? "bg-blue-500/10 border-blue-500/30 text-blue-600"
-              : "bg-emerald-500/10 border-emerald-500/30 text-emerald-600"
+              ? "bg-indigo-50 border-indigo-200 text-indigo-800"
+              : "bg-emerald-50 border-emerald-200 text-emerald-800"
           }`}>
-            {toast.type === "success" && <CheckCircle className="h-5 w-5" />}
-            {toast.type === "error" && <AlertCircle className="h-5 w-5" />}
-            {toast.type === "info" && <Clock className="h-5 w-5" />}
-            <span className="text-sm font-semibold font-sans">{toast.message}</span>
+            <span className="h-2 w-2 rounded-full bg-current animate-ping" />
+            <span className="text-xs font-semibold font-sans">{toast.message}</span>
           </div>
         </div>
       )}
 
-      {/* Render top navbar - Sans onUserChange et onLogout */}
+      {/* Render top navbar */}
       {currentUser && (
         <Navbar 
+          users={users} 
           currentUser={currentUser} 
-          onResetDb={handleResetDb}
+          onUserChange={(usr) => {
+            setCurrentUser(usr);
+            triggerToast(`Changement de session vers : ${usr.name}`, "info");
+          }} 
+          onResetDb={handleResetDb} 
+          onLogout={handleLogout}
         />
       )}
 
-      {/* Primary Split Sidebar + Main Content Layout - Sidebar fixe qui ne scrolle pas */}
-      <div className="flex-1 flex relative">
+      {/* Primary Split Sidebar + Main Content Layout */}
+      <div className="flex-1 flex flex-col md:flex-row w-full max-w-[1600px] mx-auto min-h-0">
         
-        {/* Left Sidebar Navigation Menu - FIXED POSITION */}
-        <aside className="fixed left-0 top-16 bottom-0 w-64 bg-gradient-to-b from-slate-900 to-slate-800 text-slate-300 flex flex-col shadow-2xl border-r border-slate-700/50 z-30">
-          
-          {/* Scrollable menu content */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
-            <div className="p-4 space-y-6">
+        {/* Left Sidebar Navigation Menu */}
+        <aside className="w-full md:w-64 bg-slate-900 text-slate-300 md:min-h-[calc(100vh-4rem)] flex flex-col justify-between shrink-0 border-r border-slate-800 font-sans shadow-lg">
+          <div className="p-4 space-y-6">
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2">Espace de Travail</p>
               
-              {/* Section: Menu principal */}
-              <div className="space-y-1">
-                <div className="flex items-center space-x-2 px-3 mb-3">
-                  <TrendingUp className="h-3 w-3 text-amber-500" />
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Navigation Principale</p>
+              {/* Tab 1: Dashboard */}
+              <button
+                onClick={() => setActiveTab("dashboard")}
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-sans font-medium text-xs transition-all cursor-pointer ${
+                  activeTab === "dashboard"
+                    ? "bg-amber-500 text-slate-950 font-bold shadow-md animate-fade-in"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <LayoutDashboard className="h-4.5 w-4.5 shrink-0" />
+                <span>Tableau de Bord</span>
+              </button>
+
+              {/* Tab 2: Vehicles */}
+              <button
+                onClick={() => setActiveTab("vehicles")}
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-sans font-medium text-xs transition-all cursor-pointer ${
+                  activeTab === "vehicles"
+                    ? "bg-amber-500 text-slate-950 font-bold shadow-md animate-fade-in"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <Car className="h-4.5 w-4.5 shrink-0" />
+                <span>Gestion Véhicules</span>
+              </button>
+
+              {/* Tab 3: Chauffeurs */}
+              <button
+                onClick={() => setActiveTab("chauffeurs")}
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-sans font-medium text-xs transition-all cursor-pointer ${
+                  activeTab === "chauffeurs"
+                    ? "bg-amber-500 text-slate-950 font-bold shadow-md animate-fade-in"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <Users className="h-4.5 w-4.5 shrink-0" />
+                <span>Chauffeurs</span>
+              </button>
+
+              {/* Tab 4: Versements */}
+              <button
+                onClick={() => setActiveTab("payments")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-sans font-medium text-xs transition-all cursor-pointer ${
+                  activeTab === "payments"
+                    ? "bg-amber-500 text-slate-950 font-bold shadow-md animate-fade-in"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <div className="flex items-center space-x-3 min-w-0">
+                  <Wallet className="h-4.5 w-4.5 shrink-0" />
+                  <span className="truncate">Versements (Caisse)</span>
                 </div>
-                
-                {/* Tab 1: Dashboard */}
-                <button
-                  onClick={() => setActiveTab("dashboard")}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-sans font-medium text-sm transition-all duration-300 group ${
-                    activeTab === "dashboard"
-                      ? "bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-lg scale-105"
-                      : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:translate-x-1"
-                  }`}
-                >
-                  <LayoutDashboard className={`h-5 w-5 shrink-0 transition-transform duration-300 ${activeTab === "dashboard" ? "scale-110" : "group-hover:scale-110"}`} />
-                  <span>Tableau de Bord</span>
-                  {activeTab === "dashboard" && (
-                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-slate-950 animate-pulse" />
-                  )}
-                </button>
-
-                {/* Tab 2: Vehicles */}
-                <button
-                  onClick={() => setActiveTab("vehicles")}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-sans font-medium text-sm transition-all duration-300 group ${
-                    activeTab === "vehicles"
-                      ? "bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-lg scale-105"
-                      : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:translate-x-1"
-                  }`}
-                >
-                  <Car className={`h-5 w-5 shrink-0 transition-transform duration-300 ${activeTab === "vehicles" ? "scale-110" : "group-hover:scale-110"}`} />
-                  <span>Gestion Véhicules</span>
-                </button>
-
-                {/* Tab 3: Chauffeurs */}
-                <button
-                  onClick={() => setActiveTab("chauffeurs")}
-                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-sans font-medium text-sm transition-all duration-300 group ${
-                    activeTab === "chauffeurs"
-                      ? "bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-lg scale-105"
-                      : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:translate-x-1"
-                  }`}
-                >
-                  <Users className={`h-5 w-5 shrink-0 transition-transform duration-300 ${activeTab === "chauffeurs" ? "scale-110" : "group-hover:scale-110"}`} />
-                  <span>Chauffeurs</span>
-                </button>
-
-                {/* Tab 4: Versements */}
-                <button
-                  onClick={() => setActiveTab("payments")}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-sans font-medium text-sm transition-all duration-300 group ${
-                    activeTab === "payments"
-                      ? "bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-lg scale-105"
-                      : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:translate-x-1"
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Wallet className={`h-5 w-5 shrink-0 transition-transform duration-300 ${activeTab === "payments" ? "scale-110" : "group-hover:scale-110"}`} />
-                    <span>Versements</span>
-                  </div>
-                  {pendingPaymentsCount > 0 && (
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono animate-pulse ${
-                      activeTab === "payments" 
-                        ? "bg-slate-950 text-amber-400" 
-                        : "bg-amber-500 text-slate-950"
-                    }`}>
-                      {pendingPaymentsCount}
-                    </span>
-                  )}
-                </button>
-
-                {/* Tab 5: Charges & Dépenses */}
-                <button
-                  onClick={() => setActiveTab("expenses")}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-sans font-medium text-sm transition-all duration-300 group ${
-                    activeTab === "expenses"
-                      ? "bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold shadow-lg scale-105"
-                      : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:translate-x-1"
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <Fuel className={`h-5 w-5 shrink-0 transition-transform duration-300 ${activeTab === "expenses" ? "scale-110" : "group-hover:scale-110"}`} />
-                    <span>Dépenses & Pannes</span>
-                  </div>
-                  {pendingExpensesCount > 0 && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-500 text-white animate-pulse">
-                      {pendingExpensesCount}
-                    </span>
-                  )}
-                </button>
-
-                {/* Tab 6: Users management for ADMIN only */}
-                {currentUser?.role === "ADMIN" && (
-                  <button
-                    onClick={() => setActiveTab("users")}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-sans font-medium text-sm transition-all duration-300 group ${
-                      activeTab === "users"
-                        ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-bold shadow-lg scale-105"
-                        : "text-slate-300 hover:bg-slate-700/50 hover:text-white hover:translate-x-1"
-                    }`}
-                  >
-                    <UserCog className={`h-5 w-5 shrink-0 transition-transform duration-300 ${activeTab === "users" ? "scale-110" : "group-hover:scale-110"}`} />
-                    <span>Gestion Utilisateurs</span>
-                  </button>
+                {pendingPaymentsCount > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold font-mono shrink-0 ${
+                    activeTab === "payments" ? "bg-slate-950 text-amber-400" : "bg-amber-500 text-slate-950"
+                  }`}>
+                    {pendingPaymentsCount}
+                  </span>
                 )}
-              </div>
+              </button>
 
-              {/* Section: Statistiques rapides */}
-              <div className="pt-4 border-t border-slate-700/30">
-                <div className="space-y-2 px-3">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Statistiques</p>
-                  
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Véhicules</span>
-                    <span className="text-white font-bold font-mono">{vehicles.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Chauffeurs</span>
-                    <span className="text-white font-bold font-mono">{chauffeurs.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Versements</span>
-                    <span className="text-emerald-400 font-bold font-mono">{payments.length}</span>
-                  </div>
+              {/* Tab 5: Charges & Dépenses */}
+              <button
+                onClick={() => setActiveTab("expenses")}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-sans font-medium text-xs transition-all cursor-pointer ${
+                  activeTab === "expenses"
+                    ? "bg-amber-500 text-slate-950 font-bold shadow-md animate-fade-in"
+                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <div className="flex items-center space-x-3 min-w-0">
+                  <Wrench className="h-4.5 w-4.5 shrink-0" />
+                  <span className="truncate">Dépenses & Pannes</span>
                 </div>
-              </div>
+                {pendingExpensesCount > 0 && (
+                  <span className="bg-rose-500 text-white px-1.5 py-0.5 rounded text-[10px] font-bold font-mono shrink-0">
+                    {pendingExpensesCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Tab 7: accounts management for ADMIN only */}
+              {currentUser?.role === "ADMIN" && (
+                <button
+                  onClick={() => setActiveTab("users")}
+                  className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-sans font-medium text-xs transition-all cursor-pointer ${
+                    activeTab === "users"
+                      ? "bg-emerald-600 text-white font-bold shadow-md animate-fade-in"
+                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <UserCog className={`h-4.5 w-4.5 shrink-0 ${activeTab === 'users' ? 'text-white' : 'text-emerald-400'}`} />
+                  <span>Gestion Utilisateurs</span>
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Footer section - Fixed at bottom */}
-          <div className="border-t border-slate-700/50 p-4 space-y-3 bg-slate-800/50 backdrop-blur-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <p className="text-[10px] font-mono text-slate-400">
-                  Rôle : <span className="font-semibold text-amber-400">{currentUser.role}</span>
-                </p>
-              </div>
+          <div className="p-4 bg-slate-950/45 border-t border-slate-800">
+            <div className="flex items-center space-x-2 mb-3">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-ping shrink-0" />
+              <p className="text-[10px] font-mono text-slate-400 truncate">
+                Rôle : <span className="font-semibold text-slate-200">{currentUser.role}</span>
+              </p>
             </div>
-            
+            {/* Quitter button inside Sidebar */}
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-xl text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 font-semibold text-xs transition-all duration-300 border border-rose-500/20 hover:border-rose-500/40 group"
+              className="w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-500/10 hover:text-rose-550 font-sans font-semibold text-xs transition-all border border-transparent hover:border-rose-500/20 cursor-pointer"
             >
-              <LogOut className="h-4 w-4 transition-transform duration-300 group-hover:-translate-x-1" />
+              <LogOut className="h-4 w-4 shrink-0" />
               <span>Quitter la session</span>
             </button>
           </div>
         </aside>
 
-        {/* Main Content - avec marge pour compenser la sidebar fixe */}
-        <main className="flex-1 ml-64 px-6 lg:px-8 py-8 w-full min-w-0">
+        {/* Content Body Display Container */}
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 w-full min-w-0">
           {loading ? (
-            /* Loading states skeleton views améliorés */
-            <div className="space-y-6">
-              <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-slate-200 shadow-lg animate-pulse">
-                <div className="space-y-4">
-                  <div className="h-6 bg-slate-100 rounded-lg w-1/4"></div>
-                  <div className="h-12 bg-slate-50 rounded-xl w-3/4"></div>
-                  <div className="h-24 bg-slate-50 rounded-xl"></div>
-                </div>
+            /* Loading states skeleton views */
+            <div className="space-y-6 font-sans">
+              <div className="bg-white p-6 rounded-2xl border border-slate-200/80 animate-pulse space-y-4">
+                <div className="h-4 bg-slate-100 rounded-lg w-1/4"></div>
+                <div className="h-10 bg-slate-105 rounded-xl w-3/4"></div>
+                <div className="h-20 bg-slate-50 rounded-xl"></div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[1, 2, 3].map(i => (
-                  <div key={i} className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl border border-slate-200 shadow-lg animate-pulse">
-                    <div className="space-y-3">
-                      <div className="h-10 w-10 bg-slate-100 rounded-xl"></div>
-                      <div className="h-4 bg-slate-100 rounded w-5/6"></div>
-                      <div className="h-8 bg-slate-50 rounded w-1/2"></div>
-                    </div>
+                  <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200/80 animate-pulse space-y-3">
+                    <div className="h-8 bg-slate-100 rounded"></div>
+                    <div className="h-4 bg-slate-50 rounded w-5/6"></div>
+                    <div className="h-4 bg-slate-50 rounded w-1/2"></div>
                   </div>
                 ))}
               </div>
             </div>
           ) : (
             currentUser && (
-              <div className="animate-fade-in-up">
+              <>
                 {/* Tab Display Router */}
                 {activeTab === "dashboard" && (
                   <DashboardView 
@@ -692,134 +669,76 @@ export default function App() {
                     onResetPassword={handleResetPassword}
                   />
                 )}
-              </div>
+              </>
             )
           )}
         </main>
       </div>
 
-      {/* Styles CSS pour animations et scrollbar personnalisée */}
-      <style>{`
-        @keyframes slide-down {
-          from {
-            opacity: 0;
-            transform: translateY(-20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        @keyframes fade-in-up {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        .animate-slide-down {
-          animation: slide-down 0.3s ease-out;
-        }
-        
-        .animate-fade-in-up {
-          animation: fade-in-up 0.4s ease-out;
-        }
-        
-        /* Custom scrollbar pour la sidebar */
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(51, 65, 85, 0.3);
-          border-radius: 10px;
-        }
-        
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(245, 158, 11, 0.5);
-          border-radius: 10px;
-        }
-        
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(245, 158, 11, 0.8);
-        }
-      `}</style>
-
       {/* ========================================================== */}
-      {/* MODAL: ACTIVITÉ CHAUFFEUR - Version embellie */}
+      {/* MASTER DIALOG: CHAUFFEUR CHECKIN ACTIVITY MOUNT           */}
       {/* ========================================================== */}
       {isActivityModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md transform transition-all duration-300 animate-slide-down">
+        <div className="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-sans">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-md animate-scale-up">
             
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white rounded-t-2xl">
-              <h2 className="text-lg font-bold text-slate-800 flex items-center space-x-2">
-                <Calendar className="h-5 w-5 text-amber-500" />
-                <span>Déclaration de Service</span>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <h2 className="text-sm font-bold text-slate-900 flex items-center space-x-1.5 align-middle">
+                <Calendar className="h-4 w-4 text-amber-500" />
+                <span>Déclaration Prise / Fin de Service</span>
               </h2>
               <button 
                 onClick={() => setIsActivityModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-full transition-colors duration-200"
+                className="text-slate-400 hover:text-slate-600 bg-slate-100 p-1 rounded-full"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmitActivity} className="p-6 space-y-5">
+            <form onSubmit={handleSubmitActivity} className="p-6 space-y-4">
               
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Chauffeur *</label>
+                <label className="text-xs text-slate-600 font-medium">Chauffeur *</label>
                 <select
                   required
                   value={actChauffeurId}
                   onChange={(e) => setActChauffeurId(e.target.value)}
-                  className="border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none w-full text-slate-800 bg-white transition-all duration-200"
+                  className="border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-amber-500/50 focus:outline-none w-full text-slate-800 bg-white"
                 >
-                  <option value="">-- Sélectionnez un chauffeur --</option>
+                  <option value="">-- Sélectionnez le chauffeur --</option>
                   {chauffeurs.map((c) => {
                     const veh = vehicles.find(v => v.id === c.vehiculeId);
                     return (
                       <option key={c.id} value={c.id}>
-                        {c.prenom} {c.nom} {veh ? `- ${veh.immatriculation}` : ""}
+                        {c.prenom} {c.nom} {veh ? `(${veh.immatriculation})` : ""}
                       </option>
                     );
                   })}
                 </select>
               </div>
               
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Statut opérationnel</label>
-                <div className="flex items-center space-x-4 p-3 bg-slate-50 rounded-xl">
-                  <label className="inline-flex items-center text-sm text-slate-700 cursor-pointer">
+              <div className="space-y-1">
+                <label className="text-xs text-slate-600 font-medium">Présence opérationnelle aujourd'hui ?</label>
+                <div className="flex items-center space-x-4 pt-1">
+                  <label className="inline-flex items-center text-xs text-slate-700 cursor-pointer">
                     <input
                       type="radio"
                       checked={actPresent}
                       onChange={() => setActPresent(true)}
-                      className="h-4 w-4 text-amber-500 mr-2 focus:ring-amber-500"
+                      className="h-3.5 w-3.5 text-amber-500 mr-1.5"
                     />
-                    <span className="flex items-center space-x-1">
-                      <CheckCircle className="h-4 w-4 text-emerald-500" />
-                      <span>Présent</span>
-                    </span>
+                    <span>Présent en service</span>
                   </label>
-                  <label className="inline-flex items-center text-sm text-slate-700 cursor-pointer">
+                  <label className="inline-flex items-center text-xs text-slate-700 cursor-pointer">
                     <input
                       type="radio"
                       checked={!actPresent}
                       onChange={() => setActPresent(false)}
-                      className="h-4 w-4 text-slate-500 mr-2"
+                      className="h-3.5 w-3.5 text-slate-500 mr-1.5"
                     />
-                    <span className="flex items-center space-x-1">
-                      <XCircle className="h-4 w-4 text-rose-500" />
-                      <span>Absent</span>
-                    </span>
+                    <span>Absent / Congé</span>
                   </label>
                 </div>
               </div>
@@ -827,57 +746,55 @@ export default function App() {
               {actPresent && (
                 <>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
-                      Kilométrage journalier <span className="text-amber-600">(km)</span>
-                    </label>
+                    <label className="text-xs text-indigo-700 font-bold font-sans">Kilométrage Journalier Déclaré (km) *</label>
                     <input
                       type="number"
                       required
-                      placeholder="Ex: 145"
+                      placeholder="Ex: 140"
                       value={actKm}
                       onChange={(e) => setActKm(e.target.value !== "" ? Number(e.target.value) : "")}
-                      className="border border-slate-300 rounded-xl px-4 py-2.5 font-mono text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none w-full transition-all duration-200"
+                      className="border border-slate-300 rounded-lg px-3 py-2 font-mono text-xs focus:ring-1 focus:ring-amber-500/50 focus:outline-none w-full"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">État du véhicule</label>
+                    <label className="text-xs text-slate-600 font-medium">État général constaté du véhicule</label>
                     <input
                       type="text"
-                      placeholder="Ex: Bon état, aucun souci mécanique"
+                      placeholder="Ex: Bon état, aucun bruit anormal."
                       value={actVehStatus}
                       onChange={(e) => setActVehStatus(e.target.value)}
-                      className="border border-slate-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none text-sm w-full transition-all duration-200"
+                      className="border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none text-xs w-full"
                     />
                   </div>
                 </>
               )}
 
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Observations / Incidents</label>
+                <label className="text-xs text-slate-600 font-medium font-sans">Observations journalières, pannes ou incidents</label>
                 <textarea
-                  placeholder="Signalez tout incident, panne ou observation particulière..."
+                  placeholder="Signalez ici tout incident ou observation sur le trajet (climat, travaux routiers, état des routes...)"
                   value={actObservations}
                   onChange={(e) => setActObservations(e.target.value)}
                   rows={3}
-                  className="border border-slate-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none text-sm w-full resize-none transition-all duration-200"
+                  className="border border-slate-200 rounded-lg px-3 py-2 focus:outline-none text-xs w-full"
                 />
               </div>
 
               {/* Action buttons */}
-              <div className="flex items-center justify-end space-x-3 pt-4">
+              <div className="flex items-center justify-end space-x-2 pt-4 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsActivityModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 transition-all duration-200"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-4 py-2 rounded-lg"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  className="bg-slate-900 hover:bg-slate-800 text-amber-500 text-xs font-bold px-4 py-2 rounded-lg border border-slate-800"
                 >
-                  Enregistrer l'activité
+                  Inscrire au registre
                 </button>
               </div>
 
