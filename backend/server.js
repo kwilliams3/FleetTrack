@@ -5,7 +5,7 @@
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
-import mysql from "mysql2/promise";
+import sql from "mssql";
 import apiRouter from "./routes/index.js";
 
 // Charger les variables d'environnement
@@ -17,39 +17,28 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// Configuration MySQL depuis .env
+// Configuration SQL Server depuis .env
 const dbConfig = {
-  host: process.env.DB_HOST || process.env.DB_SERVER || "KING-WILLIAMS",
-  port: parseInt(process.env.DB_PORT || "3306"),
+  server: process.env.DB_SERVER || "KING-WILLIAMS",
+  port: parseInt(process.env.DB_PORT || "1433"),
   database: process.env.DB_DATABASE || "FleetTrack",
-  user: process.env.DB_USER || "root",
+  user: process.env.DB_USER || "sa",
   password: process.env.DB_PASSWORD || "AZERTY123",
-  connectTimeout: 4000
+  options: {
+    encrypt: process.env.DB_ENCRYPT === "true",
+    trustServerCertificate: process.env.DB_TRUST_SERVER_CERTIFICATE === "true",
+  },
 };
 
 // Fonction de test de connexion DB
 async function testDatabaseConnection() {
   try {
-    const host = dbConfig.host;
-    // S'assurer de l'existence de la base
-    try {
-      const conn = await mysql.createConnection({
-        host,
-        port: dbConfig.port,
-        user: dbConfig.user,
-        password: dbConfig.password,
-        connectTimeout: 4000
-      });
-      await conn.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
-      await conn.end();
-    } catch (_) {}
-
-    const pool = mysql.createPool(dbConfig);
-    const [rows] = await pool.query("SELECT DATABASE() as databaseName, NOW() as serverTime");
-    console.log("✅ SUCCÈS: Connecté à MySQL!");
-    console.log(`📊 Base de données: ${rows[0].databaseName}`);
-    console.log(`⏰ Heure serveur: ${rows[0].serverTime}`);
-    await pool.end();
+    const pool = await sql.connect(dbConfig);
+    console.log("✅ SUCCÈS: Connecté à SQL Server!");
+    const result = await pool.request().query("SELECT DB_NAME() as databaseName, GETDATE() as serverTime");
+    console.log(`📊 Base de données: ${result.recordset[0].databaseName}`);
+    console.log(`⏰ Heure serveur: ${result.recordset[0].serverTime}`);
+    await sql.close();
     return true;
   } catch (error) {
     console.error("❌ ÉCHEC: Base de données non connectée");
@@ -70,13 +59,13 @@ const isProd = process.env.NODE_ENV === "production";
 // Endpoint de test DB
 app.get("/api/db-status", async (req, res) => {
   try {
-    const pool = mysql.createPool(dbConfig);
-    const [rows] = await pool.query("SELECT DATABASE() as db, NOW() as time");
-    await pool.end();
+    const pool = await sql.connect(dbConfig);
+    const result = await pool.request().query("SELECT DB_NAME() as db, GETDATE() as time");
+    await sql.close();
     res.json({
       status: "connected",
-      database: rows[0].db,
-      serverTime: rows[0].time,
+      database: result.recordset[0].db,
+      serverTime: result.recordset[0].time,
     });
   } catch (error) {
     res.status(500).json({ status: "disconnected", error: error.message });
@@ -97,7 +86,7 @@ if (isProd) {
 
 // Démarrer le serveur avec test DB
 async function startServer() {
-  console.log("🔄 Test de connexion à MySQL...");
+  console.log("🔄 Test de connexion à SQL Server...");
   const dbConnected = await testDatabaseConnection();
 
   app.listen(PORT, "0.0.0.0", () => {

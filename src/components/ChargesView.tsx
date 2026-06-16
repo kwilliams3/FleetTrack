@@ -4,7 +4,8 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { 
   Plus, Check, X, ShieldAlert, AlertTriangle, Calendar, Filter, 
-  Wrench, Fuel, Image, AlertCircle, FileText, Clock, Settings, Eye, HelpCircle, Tag, MessageSquare, RefreshCw
+  Wrench, Fuel, Image, AlertCircle, FileText, Clock, Settings, Eye, HelpCircle, Tag, MessageSquare, RefreshCw,
+  Search, ChevronLeft, ChevronRight, Save, Info, TrendingUp, Receipt, Car, UserCheck, Award
 } from "lucide-react";
 
 interface ChargesViewProps {
@@ -28,7 +29,6 @@ export default function ChargesView({
   const isDriver = false;
   const associatedDriver = undefined;
   
-  // Local UI Filter States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExpenseForDetail, setSelectedExpenseForDetail] = useState<Charge | null>(null);
   const [searchVeh, setSearchVeh] = useState("");
@@ -36,22 +36,21 @@ export default function ChargesView({
   const [filterStatut, setFilterStatut] = useState("all");
   const [activeSubTab, setActiveSubTab] = useState<'expenses' | 'timeline'>('expenses');
   const [timelineVehFilter, setTimelineVehFilter] = useState("all");
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = 2;
 
-  // Decision modal state
   const [decisionModalOpen, setDecisionModalOpen] = useState(false);
   const [decisionTargetId, setDecisionTargetId] = useState<string | null>(null);
   const [decisionValue, setDecisionValue] = useState<'APPROVE' | 'REJECT' | null>("APPROVE");
   const [decisionObservation, setDecisionObservation] = useState("");
 
-  // Charge Form State
   const [formVehiculeId, setFormVehiculeId] = useState("");
   const [formTypeCharge, setFormTypeCharge] = useState<Charge['typeCharge']>("Carburant");
   const [formDescription, setFormDescription] = useState("");
   const [formMontant, setFormMontant] = useState<number | "">("");
-  const [formJustificatif, setFormJustificatif] = useState("recu_frais_scanne.jpg");
+  const [formJustificatif, setFormJustificatif] = useState("");
   const [formDate, setFormDate] = useState(new Date().toISOString().split("T")[0]);
 
-  // Format currency helpers
   const formatFCFA = (val: number) => {
     return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "XAF", maximumFractionDigits: 0 })
       .format(val)
@@ -59,11 +58,12 @@ export default function ChargesView({
   };
 
   const handleOpenDeclare = () => {
+    setCurrentStep(1);
     setFormDate(new Date().toISOString().split("T")[0]);
     setFormMontant("");
     setFormDescription("");
     setFormTypeCharge("Carburant");
-    setFormJustificatif("Ticket_recu_" + Math.floor(1000 + Math.random() * 9000) + ".jpg");
+    setFormJustificatif("");
 
     if (isDriver && associatedDriver) {
       setFormVehiculeId(associatedDriver.vehiculeId || "");
@@ -89,7 +89,7 @@ export default function ChargesView({
       typeCharge: formTypeCharge,
       description: formDescription,
       montant: Number(formMontant),
-      justificatif: formJustificatif
+      justificatif: formJustificatif || `justificatif_${Date.now()}.jpg`
     });
 
     setIsModalOpen(false);
@@ -112,9 +112,13 @@ export default function ChargesView({
     setDecisionObservation("");
   };
 
-  // Filter computation
+  // Stats for cards
+  const totalExpenses = expenses.length;
+  const approvedExpenses = expenses.filter(e => e.statut === "Validé").length;
+  const pendingExpenses = expenses.filter(e => e.statut === "En attente").length;
+  const rejectedExpenses = expenses.filter(e => e.statut === "Refusé").length;
+
   const filteredExpenses = expenses.filter(e => {
-    // If Chauffeur role, only see personal submitted expenses
     if (isDriver && associatedDriver) {
       if (e.chauffeurId !== associatedDriver.id) return false;
     }
@@ -138,7 +142,6 @@ export default function ChargesView({
     .reduce((sum, e) => sum + e.montant, 0);
 
   const exportPDF5Days = () => {
-    // 1. Get last 5 dates of data
     const last5Dates = Array.from(new Set(filteredExpenses.map(e => e.date)))
       .sort((a, b) => b.localeCompare(a))
       .slice(0, 5);
@@ -148,17 +151,15 @@ export default function ChargesView({
       return;
     }
 
-    // 2. Create jsPDF instance
     const doc = new jsPDF();
 
-    // 3. Header styling
-    doc.setFillColor(15, 23, 42); // slate-900 background for top header
+    doc.setFillColor(15, 23, 42);
     doc.rect(0, 0, 210, 35, "F");
 
     doc.setTextColor(255, 255, 255);
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(16);
-    doc.text("RAPPORT MENSUEL DES DÉPENSES - LES 5 DERNIERS JOURS", 14, 15);
+    doc.text("RAPPORT MENSUEL DES DEPENSES - LES 5 DERNIERS JOURS", 14, 15);
     
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(9);
@@ -166,13 +167,11 @@ export default function ChargesView({
     doc.text(`Généré le: ${new Date().toLocaleString("fr-FR")} | Opérateur: ${currentUser.name} (${currentUser.role})`, 14, 25);
     doc.text(`Nombre de jours d'activité analysés: ${last5Dates.length}`, 14, 30);
 
-    // Section 1: Daily Summary
     doc.setTextColor(15, 23, 42);
     doc.setFontSize(12);
     doc.setFont("Helvetica", "bold");
     doc.text("1. Tableau Récapitulatif par Jour", 14, 45);
 
-    // Build summary rows
     const summaryRows = last5Dates.map(date => {
       const dayExpenses = filteredExpenses.filter(e => e.date === date);
       const totalAmount = dayExpenses.reduce((sum, e) => sum + e.montant, 0);
@@ -193,13 +192,12 @@ export default function ChargesView({
       ];
     });
 
-    // Draw Summary table
     autoTable(doc, {
       startY: 50,
       head: [['Date d\'activité', 'Opérations', 'Total Validé', 'Total En Attente', 'Total Cumulé']],
       body: summaryRows,
       theme: 'striped',
-      headStyles: { fillColor: [244, 63, 94], textColor: [255, 255, 255] }, // Rose primary header
+      headStyles: { fillColor: [244, 63, 94], textColor: [255, 255, 255] },
       styles: { fontSize: 9, font: 'Helvetica' },
       columnStyles: {
         2: { halign: 'right' },
@@ -208,7 +206,6 @@ export default function ChargesView({
       }
     });
 
-    // Section 2: Detailed logs
     let finalY = (doc as any).lastAutoTable.finalY + 15;
     
     if (finalY > 250) {
@@ -251,249 +248,301 @@ export default function ChargesView({
       }
     });
 
-    // Save report
     doc.save(`Rapport_Depenses_5Jours_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
+  const nextStep = () => {
+    if (currentStep < totalSteps) {
+      if (currentStep === 1 && (!formVehiculeId || !formTypeCharge)) {
+        alert("Veuillez sélectionner un véhicule et un type de charge");
+        return;
+      }
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  const getTypeIcon = (type: string) => {
+    switch(type) {
+      case 'Carburant': return <Fuel className="h-3.5 w-3.5" />;
+      case 'Panne mécanique': return <AlertCircle className="h-3.5 w-3.5" />;
+      case 'Réparation': return <Wrench className="h-3.5 w-3.5" />;
+      default: return <Settings className="h-3.5 w-3.5" />;
+    }
+  };
+
+  const getTypeColor = (type: string) => {
+    switch(type) {
+      case 'Carburant': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'Panne mécanique': return 'bg-rose-100 text-rose-700 border-rose-200';
+      case 'Réparation': return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'Entretien': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      default: return 'bg-slate-100 text-slate-700 border-slate-200';
+    }
+  };
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in-up">
       
-      {/* Quick summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        
-        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex items-center space-x-3">
-          <div className="bg-rose-50 text-rose-600 p-2.5 rounded-lg">
-            <Fuel className="h-5 w-5" />
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center space-x-2">
+            <Receipt className="h-7 w-7 text-amber-500" />
+            <span>Gestion des Dépenses</span>
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">Suivez et validez les dépenses d'exploitation de la flotte</p>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <div className="group bg-white rounded-2xl border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-2 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <Receipt className="h-5 w-5 text-white" />
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">Total dépenses</p>
+            <h3 className="text-2xl font-bold text-slate-800">{totalExpenses}</h3>
           </div>
-          <div>
-            <p className="text-[10px] text-slate-400 font-semibold uppercase leading-none font-sans">Total Frais Validés Remboursés</p>
-            <h3 className="text-lg font-bold font-mono text-slate-900 mt-1">{formatFCFA(totalValidatedCosts)}</h3>
-          </div>
+          <div className="h-1 bg-gradient-to-r from-blue-500 to-blue-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
         </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex items-center space-x-3">
-          <div className="bg-amber-50 text-amber-500 p-2.5 rounded-lg">
-            <AlertCircle className="h-5 w-5 animate-bounce" />
+        <div className="group bg-white rounded-2xl border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-2 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <Check className="h-5 w-5 text-white" />
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">Dépenses validées</p>
+            <h3 className="text-2xl font-bold text-emerald-600">{approvedExpenses}</h3>
           </div>
-          <div>
-            <p className="text-[10px] text-slate-400 font-semibold uppercase leading-none font-sans">Frais opérationnels en attente de validation</p>
-            <h3 className="text-lg font-bold font-mono text-amber-600 mt-1">{formatFCFA(totalPendingCosts)}</h3>
-          </div>
+          <div className="h-1 bg-gradient-to-r from-emerald-500 to-emerald-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
         </div>
 
+        <div className="group bg-white rounded-2xl border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-2 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <Clock className="h-5 w-5 text-white" />
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">En attente</p>
+            <h3 className="text-2xl font-bold text-amber-600">{pendingExpenses}</h3>
+          </div>
+          <div className="h-1 bg-gradient-to-r from-amber-500 to-amber-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
+        </div>
+
+        <div className="group bg-white rounded-2xl border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="bg-gradient-to-br from-rose-500 to-rose-600 p-2 rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300">
+                <X className="h-5 w-5 text-white" />
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">Dépenses refusées</p>
+            <h3 className="text-2xl font-bold text-rose-600">{rejectedExpenses}</h3>
+          </div>
+          <div className="h-1 bg-gradient-to-r from-rose-500 to-rose-600 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
+        </div>
       </div>
 
       {/* Sub-tabs Selection */}
-      <div className="flex border-b border-slate-200">
+      <div className="flex border-b border-slate-200 bg-white rounded-t-2xl px-2">
         <button
           onClick={() => setActiveSubTab("expenses")}
-          className={`px-4 py-2 text-xs font-bold font-sans border-b-2 transition-all cursor-pointer ${
+          className={`px-5 py-3 text-sm font-bold font-sans border-b-2 transition-all duration-300 flex items-center space-x-2 ${
             activeSubTab === "expenses"
-              ? "border-rose-500 text-rose-600 font-bold"
+              ? "border-rose-500 text-rose-600"
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          📋 Registre Général des Dépenses
+          <FileText className="h-4 w-4" />
+          <span>Registre des Dépenses</span>
         </button>
         <button
           onClick={() => setActiveSubTab("timeline")}
-          className={`px-4 py-2 text-xs font-bold font-sans border-b-2 transition-all cursor-pointer ${
+          className={`px-5 py-3 text-sm font-bold font-sans border-b-2 transition-all duration-300 flex items-center space-x-2 ${
             activeSubTab === "timeline"
-              ? "border-rose-500 text-rose-600 font-bold"
+              ? "border-rose-500 text-rose-600"
               : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          ⏳ Axe Chronologique des Immobilisations
+          <Clock className="h-4 w-4" />
+          <span>Historique des Interventions</span>
         </button>
       </div>
 
       {activeSubTab === "expenses" ? (
         <>
-          {/* Control filters */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200/80">
-            <div className="flex flex-wrap flex-1 gap-2 items-center">
+          {/* Search and Filter Bar */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-4">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher par véhicule, chauffeur ou description..."
+                  value={searchVeh}
+                  onChange={(e) => setSearchVeh(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none transition-all duration-200"
+                />
+              </div>
               
-              <input
-                type="text"
-                placeholder="Rechercher véhicule, description..."
-                value={searchVeh}
-                onChange={(e) => setSearchVeh(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none w-full sm:max-w-xs font-sans"
-              />
-
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none cursor-pointer font-sans"
-              >
-                <option value="all">Toutes les catégories de Charge</option>
-                <option value="Panne mécanique">Pannes mécaniques</option>
-                <option value="Réparation">Réparations au garage</option>
-                <option value="Entretien">Entretien régulier</option>
-                <option value="Carburant">Achat de Carburant</option>
-                <option value="Pneus">Changement de Pneus</option>
-                <option value="Vidange">Vidange moteur</option>
-                <option value="Pièces de rechange">Pièces détachées</option>
-                <option value="Autre">Autres débours</option>
-              </select>
-
-              <select
-                value={filterStatut}
-                onChange={(e) => setFilterStatut(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none cursor-pointer font-sans"
-              >
-                <option value="all">Tous les Statuts</option>
-                <option value="Validé">Validé</option>
-                <option value="En attente">En attente admin</option>
-                <option value="Refusé">Refusé</option>
-              </select>
-
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={exportPDF5Days}
-                className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-sans text-xs font-bold px-4 py-2 rounded-lg flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
-                title="Exporter le rapport des 5 derniers jours"
-              >
-                <FileText className="h-4 w-4 text-rose-500" />
-                <span>Exporter PDF (5J)</span>
-              </button>
-
-              {isManager && (
-                <button
-                  onClick={handleOpenDeclare}
-                  className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-amber-500 font-sans text-xs font-bold px-4 py-2 rounded-lg flex items-center justify-center space-x-1.5 shrink-0 cursor-pointer"
+              <div className="flex items-center space-x-2">
+                <Filter className="h-4 w-4 text-slate-400" />
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none cursor-pointer text-slate-600 min-w-[180px]"
                 >
-                  <Plus className="h-4 w-4" />
-                  <span>Déclarer une Dépense</span>
+                  <option value="all">Tous les types</option>
+                  <option value="Carburant">Carburant</option>
+                  <option value="Panne mécanique">Panne mécanique</option>
+                  <option value="Réparation">Réparation</option>
+                  <option value="Entretien">Entretien</option>
+                  <option value="Pneus">Pneus</option>
+                  <option value="Vidange">Vidange</option>
+                </select>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <ShieldAlert className="h-4 w-4 text-slate-400" />
+                <select
+                  value={filterStatut}
+                  onChange={(e) => setFilterStatut(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none cursor-pointer text-slate-600 min-w-[150px]"
+                >
+                  <option value="all">Tous les statuts</option>
+                  <option value="Validé">Validés</option>
+                  <option value="En attente">En attente</option>
+                  <option value="Refusé">Refusés</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exportPDF5Days}
+                  className="bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white font-semibold text-xs px-4 py-2.5 rounded-xl flex items-center space-x-2 transition-all duration-300 shadow-md hover:shadow-lg"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>Exporter PDF (5J)</span>
                 </button>
-              )}
+
+                {isManager && (
+                  <button
+                    onClick={handleOpenDeclare}
+                    className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold px-5 py-2.5 rounded-xl transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Nouvelle Dépense</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Main Table */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-sans font-bold text-xs text-slate-800">
-                Registre des dépenses et validations de la flotte
-              </h3>
-              <span className="text-[10px] text-slate-400 font-mono italic">Devise : FCFA</span>
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Receipt className="h-5 w-5 text-rose-500" />
+                  <h3 className="font-bold text-slate-800">Registre des dépenses</h3>
+                </div>
+                <span className="text-[10px] text-slate-400 font-mono">Montants en FCFA</span>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse font-sans text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 text-[10px] font-mono text-slate-400 uppercase tracking-wider bg-slate-50/50">
-                    <th className="py-3 px-5">Date / ID</th>
-                    <th className="py-3 px-3">Véhicule</th>
-                    <th className="py-3 px-3">Type & Description</th>
-                    <th className="py-3 px-3">Auteur déclaration</th>
-                    <th className="py-3 px-3 text-right">Montant</th>
-                    <th className="py-3 px-3">Pièce jointe</th>
-                    <th className="py-3 px-5 text-right">Actions / Statut</th>
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr className="text-[11px] font-mono text-slate-500 uppercase">
+                    <th className="px-5 py-3 text-left">Date</th>
+                    <th className="px-5 py-3 text-left">Véhicule</th>
+                    <th className="px-5 py-3 text-left">Type</th>
+                    <th className="px-5 py-3 text-left">Description</th>
+                    <th className="px-5 py-3 text-left">Auteur</th>
+                    <th className="px-5 py-3 text-right">Montant</th>
+                    <th className="px-5 py-3 text-right">Statut</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100/50">
-                  {filteredExpenses.map((e) => {
-                    return (
-                      <tr key={e.id} className="hover:bg-slate-50/50">
-                        
-                        {/* Date / ID */}
-                        <td className="py-3.5 px-5 space-y-0.5">
-                          <span className="font-mono text-[9px] text-slate-400 block">{e.id}</span>
-                          <span className="font-mono block">{e.date}</span>
-                        </td>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredExpenses.map((e) => (
+                    <tr key={e.id} className="hover:bg-slate-50/50 transition-colors duration-150">
+                      <td className="px-5 py-3">
+                        <p className="text-sm font-semibold text-slate-800">{e.date}</p>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className="font-mono text-xs font-bold bg-slate-100 text-slate-700 px-2 py-1 rounded-lg">
+                          {e.matricule}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-lg text-[10px] font-bold ${getTypeColor(e.typeCharge)}`}>
+                          {getTypeIcon(e.typeCharge)}
+                          <span>{e.typeCharge}</span>
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <p className="text-sm text-slate-600 max-w-xs truncate" title={e.description}>
+                          {e.description}
+                        </p>
+                      </td>
+                      <td className="px-5 py-3 text-sm text-slate-600">{e.nomChauffeur}</td>
+                      <td className="px-5 py-3 text-right font-mono text-sm font-bold text-rose-600">
+                        {formatFCFA(e.montant)}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <div className="flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => setSelectedExpenseForDetail(e)}
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-indigo-100 transition-colors"
+                            title="Détails"
+                          >
+                            <Eye className="h-3.5 w-3.5 text-indigo-600" />
+                          </button>
 
-                        {/* Vehicle */}
-                        <td className="py-3.5 px-3">
-                          <span className="font-mono font-bold bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]">
-                            {e.matricule}
-                          </span>
-                        </td>
-
-                        {/* Type & Description */}
-                        <td className="py-3.5 px-3 space-y-0.5 max-w-xs">
-                          <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 font-semibold rounded text-[10px] font-sans inline-block">
-                            {e.typeCharge}
-                          </span>
-                          <p className="text-slate-700 font-medium truncate leading-tight" title={e.description}>
-                            {e.description}
-                          </p>
-                        </td>
-
-                        {/* Author chauffeur */}
-                        <td className="py-3.5 px-3 font-medium text-slate-600">
-                          {e.nomChauffeur}
-                        </td>
-
-                        {/* Cost amount */}
-                        <td className="py-3.5 px-3 text-right font-mono font-bold text-rose-600">
-                          {formatFCFA(e.montant)}
-                        </td>
-
-                        {/* Digital copy receipt link */}
-                        <td className="py-3.5 px-3 text-slate-500">
-                          <span className="inline-flex items-center text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-500 leading-none">
-                            <Image className="h-3 w-3 mr-1 text-slate-400" />
-                            {e.justificatif || "justificatif.jpg"}
-                          </span>
-                        </td>
-
-                        {/* Administration approval workflow */}
-                        <td className="py-3.5 px-5 text-right">
-                          <div className="flex items-center justify-end space-x-2">
+                          {e.statut === "En attente" && isManager && (
                             <button
-                              onClick={() => setSelectedExpenseForDetail(e)}
-                              className="bg-slate-100 hover:bg-slate-200 border border-slate-205 text-slate-700 hover:text-slate-950 font-sans text-[10px] font-bold py-1 px-2.5 rounded-lg transition-colors flex items-center space-x-1 cursor-pointer whitespace-nowrap"
-                              title="Détails de la Charge"
-                              id={`btn-det-exp-${e.id}`}
+                              onClick={() => {
+                                setDecisionTargetId(e.id);
+                                setDecisionValue("APPROVE");
+                                setDecisionObservation("");
+                                setDecisionModalOpen(true);
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 text-[10px] font-semibold transition-colors"
                             >
-                              <Eye className="h-3 w-3 text-indigo-500" />
-                              <span>Détails</span>
+                              Valider
                             </button>
+                          )}
 
-                            {e.statut === "En attente" && isManager ? (
-                              <button
-                                onClick={() => {
-                                  setDecisionTargetId(e.id);
-                                  setDecisionValue("APPROVE");
-                                  setDecisionObservation("");
-                                  setDecisionModalOpen(true);
-                                }}
-                                className="bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 font-sans text-[10px] font-bold py-1 px-2.5 rounded-lg transition-colors flex items-center space-x-1 cursor-pointer"
-                                title="Prendre une décision de validation"
-                                id={`btn-decision-ch-${e.id}`}
-                              >
-                                <RefreshCw className="h-3 w-3 text-amber-600 animate-spin-hover" />
-                                <span>Statut</span>
-                              </button>
-                            ) : (
-                              <div className="space-y-0.5">
-                                <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                                  e.statut === "Validé" ? "bg-emerald-50 text-emerald-700 font-bold" :
-                                  e.statut === "Refusé" ? "bg-rose-50 text-rose-700 font-bold" : "bg-amber-50 text-amber-700"
-                                }`}>
-                                  {e.statut}
-                                </span>
-                                {e.statut === "Refusé" && e.motifRefus && (
-                                  <span className="text-[10px] text-rose-500 italic block leading-none opacity-80" title={e.motifRefus}>
-                                    Explication: "{e.motifRefus.substring(0, 24)}..."
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          {e.statut !== "En attente" && (
+                            <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${
+                              e.statut === "Validé" ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                            }`}>
+                              {e.statut}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
 
                   {filteredExpenses.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400 italic">
-                        Aucune charge ou note de panne enregistrée.
+                      <td colSpan={7} className="px-5 py-12 text-center">
+                        <div className="text-slate-400">
+                          <Receipt className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                          <p className="text-sm">Aucune dépense trouvée</p>
+                          <p className="text-xs mt-1">Aucune transaction ne correspond à vos critères</p>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -504,36 +553,29 @@ export default function ChargesView({
         </>
       ) : (
         <div className="space-y-6">
-          {/* Timeline Vehicle Select filter */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200/80">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-slate-500 font-sans font-medium">Filtrer par Véhicule :</span>
-              <select
-                value={timelineVehFilter}
-                onChange={(e) => setTimelineVehFilter(e.target.value)}
-                className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none cursor-pointer font-sans"
-              >
-                <option value="all">Tous les véhicules ({vehicles.length})</option>
-                {vehicles.map(v => (
-                  <option key={v.id} value={v.id}>{v.immatriculation} - {v.marque} {v.modele}</option>
-                ))}
-              </select>
-            </div>
-            <div className="text-xs text-slate-400 font-sans font-medium">
-              Chaque entrée représente une date d'immobilisation pour maintenance ou panne déclarée.
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center space-x-3">
+                <Car className="h-5 w-5 text-amber-500" />
+                <select
+                  value={timelineVehFilter}
+                  onChange={(e) => setTimelineVehFilter(e.target.value)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none cursor-pointer text-slate-600 min-w-[200px]"
+                >
+                  <option value="all">Tous les véhicules</option>
+                  {vehicles.map(v => (
+                    <option key={v.id} value={v.id}>{v.immatriculation} - {v.marque} {v.modele}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="text-xs text-slate-400">
+                <Clock className="h-3.5 w-3.5 inline mr-1" />
+                Chronologie des immobilisations et maintenances
+              </div>
             </div>
           </div>
 
-          {/* Timeline itself */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 p-6">
-            <div className="border-b border-slate-100 pb-4 mb-6">
-              <h3 className="font-sans font-bold text-sm text-slate-800 flex items-center space-x-2">
-                <Clock className="h-4 w-4 text-indigo-500" />
-                <span>Ligne de Temps des Immobilisations Véhicules</span>
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">Suivi chronologique de l'indisponibilité physique pour maintenance, panne mécanique ou entretien régulier.</p>
-            </div>
-
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6">
             {(() => {
               const maintenanceTypes = ['Panne mécanique', 'Réparation', 'Entretien', 'Vidange', 'Pièces de rechange'];
               const list = expenses.filter(e => {
@@ -544,80 +586,54 @@ export default function ChargesView({
 
               if (list.length === 0) {
                 return (
-                  <div className="py-12 text-center text-slate-400 italic">
-                    <Settings className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-xs">Aucune immobilisation ou maintenance déclarée pour ce véhicule.</p>
+                  <div className="py-12 text-center text-slate-400">
+                    <Settings className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                    <p className="text-sm">Aucune intervention enregistrée</p>
                   </div>
                 );
               }
 
               return (
-                <div className="relative pl-6 border-l border-slate-200 space-y-6 ml-3 py-2">
-                  {list.map((e) => {
-                    const isPanne = e.typeCharge === "Panne mécanique";
-                    const isReparation = e.typeCharge === "Réparation" || e.typeCharge === "Pièces de rechange";
-                    
-                    return (
-                      <div key={e.id} className="relative group">
-                        {/* Timeline Node Point Icon */}
-                        <div className={`absolute -left-[35px] top-1 h-4 w-4 rounded-full flex items-center justify-center border-2 bg-white transition-transform duration-200 group-hover:scale-110 shadow-xs ${
-                          isPanne ? 'border-rose-500' : 
-                          isReparation ? 'border-indigo-500' : 'border-amber-500'
-                        }`}>
-                          <div className={`h-1.5 w-1.5 rounded-full ${
-                            isPanne ? 'bg-rose-500' : 
-                            isReparation ? 'bg-indigo-500' : 'bg-amber-500'
-                          }`} />
+                <div className="relative pl-8 border-l-2 border-rose-200 space-y-6 ml-4">
+                  {list.map((e, idx) => (
+                    <div key={e.id} className="relative group animate-fade-in-up" style={{ animationDelay: `${idx * 100}ms` }}>
+                      <div className={`absolute -left-[37px] top-1 h-3 w-3 rounded-full ${e.typeCharge === 'Panne mécanique' ? 'bg-rose-500 ring-4 ring-rose-200' : 'bg-amber-500 ring-4 ring-amber-200'}`} />
+                      
+                      <div className="bg-gradient-to-r from-slate-50 to-white rounded-xl p-4 border border-slate-200 hover:shadow-md transition-all duration-300">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                          <div className="flex items-center space-x-3">
+                            <span className="font-mono text-xs font-bold bg-slate-800 text-white px-2 py-1 rounded-lg">
+                              {e.matricule}
+                            </span>
+                            <span className="text-xs text-slate-500 flex items-center space-x-1">
+                              <Calendar className="h-3 w-3" />
+                              <span>{e.date}</span>
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${getTypeColor(e.typeCharge)}`}>
+                              {e.typeCharge}
+                            </span>
+                            <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${
+                              e.statut === "Validé" ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {e.statut}
+                            </span>
+                          </div>
                         </div>
-
-                        {/* Content Card */}
-                        <div className="bg-slate-50/40 hover:bg-slate-50 border border-slate-200/60 rounded-xl p-4 transition-all duration-200">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2 mb-2">
-                            <div className="flex items-center space-x-2">
-                              <span className="font-mono text-[10px] font-bold bg-slate-900 text-white px-2 py-0.5 rounded">
-                                {e.matricule}
-                              </span>
-                              <span className="text-[11px] text-slate-500 font-mono font-medium flex items-center">
-                                <Calendar className="h-3 w-3 mr-1 text-slate-450" />
-                                {e.date}
-                              </span>
-                            </div>
-                            <div className="flex items-center space-x-1.5">
-                              <span className={`px-2 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider ${
-                                isPanne ? 'bg-rose-50 text-rose-700 border border-rose-100' :
-                                isReparation ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
-                                'bg-amber-50 text-amber-700 border border-amber-100'
-                              }`}>
-                                {e.typeCharge}
-                              </span>
-                              <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] ${
-                                e.statut === "Validé" ? "bg-emerald-50 text-emerald-700" :
-                                e.statut === "Refusé" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"
-                              }`}>
-                                {e.statut}
-                              </span>
-                            </div>
+                        
+                        <p className="text-sm text-slate-700 mb-3">{e.description}</p>
+                        
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                          <div className="flex items-center space-x-2 text-xs text-slate-500">
+                            <UserCheck className="h-3.5 w-3.5" />
+                            <span>{e.nomChauffeur}</span>
                           </div>
-
-                          <div className="space-y-2 mt-2">
-                            <p className="text-xs font-semibold text-slate-800 leading-normal">
-                              {e.description}
-                            </p>
-                            
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[10.5px] text-slate-500 font-sans">
-                              <div className="flex items-center space-x-1">
-                                <span>Auteur :</span>
-                                <span className="font-semibold text-slate-700">{e.nomChauffeur}</span>
-                              </div>
-                              <div className="font-mono font-bold text-rose-600">
-                                Coût : +{formatFCFA(e.montant)}
-                              </div>
-                            </div>
-                          </div>
+                          <span className="font-mono font-bold text-rose-600">{formatFCFA(e.montant)}</span>
                         </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               );
             })()}
@@ -626,383 +642,436 @@ export default function ChargesView({
       )}
 
       {/* ========================================================== */}
-      {/* MODAL: SUBMIT NEW EXPENSE (CHARGE DECLARATION)             */}
+      {/* MODAL ULTRA PREMIUM : NOUVELLE DÉPENSE AVEC ÉTAPES */}
       {/* ========================================================== */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-md animate-scale-up">
+        <div className="fixed inset-0 bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-slide-down relative">
             
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h2 className="text-sm font-bold text-slate-900 font-sans">
-                {isDriver ? "Déclarer une dépense d'exploitation" : "Saisir une Note de Dépense Flotte"}
-              </h2>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 bg-slate-100 p-1 rounded-full text-xs"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleFormSubmit} className="p-6 space-y-4">
-              
-              <div className="space-y-1">
-                <label className="text-xs text-slate-600 font-medium">Date de l'opération</label>
-                <input
-                  type="date"
-                  required
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none w-full text-xs font-mono text-slate-700"
-                />
-              </div>
-
-              {isDriver && associatedDriver ? (
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-600 font-medium">Véhicule de service d'affectation</label>
-                  <p className="bg-slate-50 border border-slate-105 px-3 py-2 rounded-lg text-xs font-mono text-slate-800">
-                    {associatedDriver.vehiculeId ? vehicles.find(v => v.id === associatedDriver.vehiculeId)?.immatriculation : "Aucun"}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <label className="text-xs text-slate-600 font-medium">Sélectionner Véhicule *</label>
-                  <select
-                    required
-                    value={formVehiculeId}
-                    onChange={(e) => setFormVehiculeId(e.target.value)}
-                    className="border border-slate-350 rounded-lg px-3 py-2 text-xs w-full font-sans text-slate-850"
-                  >
-                    <option value="">-- Choisir véhicule --</option>
-                    {vehicles.map(v => (
-                      <option key={v.id} value={v.id}>
-                        {v.immatriculation} - {v.marque} {v.modele}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="space-y-1">
-                <label className="text-xs text-slate-600 font-medium">Type de charge opérationnelle *</label>
-                <select
-                  required
-                  value={formTypeCharge}
-                  onChange={(e) => setFormTypeCharge(e.target.value as any)}
-                  className="border border-slate-305 rounded-lg px-3 py-2 text-xs w-full font-sans text-slate-850"
-                >
-                  <option value="Carburant">Achat de Carburant (Gasoil/Super)</option>
-                  <option value="Panne mécanique">Déclaration de Panne Mécanique</option>
-                  <option value="Réparation">Réparation de secours (Garage)</option>
-                  <option value="Entretien">Entretien programmatique (Essuie-glace, phares...)</option>
-                  <option value="Pneus">Achat / Montage de Pneus</option>
-                  <option value="Vidange">Vidange moteur complète & filtres</option>
-                  <option value="Pièces de rechange">Pièces de rechange neuves/occasion</option>
-                  <option value="Autre">Autres débours imprévus</option>
-                </select>
-              </div>
-
-              {formTypeCharge === "Panne mécanique" && (
-                <div className="bg-rose-50 border border-rose-100 p-2.5 rounded-lg flex items-start space-x-1.5 text-[11px] text-rose-800 font-sans">
-                  <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-amber-400 to-rose-500" />
+            
+            <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 px-6 pt-6 pb-4 border-b border-slate-100 rounded-t-3xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-2.5 rounded-xl shadow-lg">
+                    <Receipt className="h-5 w-5 text-white" />
+                  </div>
                   <div>
-                    <span className="font-bold">Débrayage d'urgence :</span>
-                    <p className="mt-0.5">Déclarer cette panier mécanique mettra automatiquement le statut général de ce véhicule en "En panne" dans la flotte de gestion.</p>
+                    <h2 className="text-xl font-bold text-slate-800">Nouvelle Dépense</h2>
+                    <p className="text-xs text-slate-500">Enregistrer une dépense d'exploitation</p>
                   </div>
                 </div>
-              )}
-
-              <div className="space-y-1">
-                <label className="text-xs text-slate-600 font-medium">Description détaillée de la dépense *</label>
-                <textarea
-                  required
-                  rows={3}
-                  placeholder="Ex: Achat de 20 litres Gasoil à la station Total pour trajets interurbains Douala - Yaoundé..."
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-2 focus:ring-1 focus:ring-amber-500/50 focus:outline-none w-full text-xs"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs text-indigo-700 font-bold font-sans">Montant Payé (FCFA) *</label>
-                <input
-                  type="number"
-                  required
-                  placeholder="Ex: 25000"
-                  value={formMontant}
-                  onChange={(e) => setFormMontant(e.target.value !== "" ? Number(e.target.value) : "")}
-                  className="border border-slate-300 rounded-lg px-3 py-2 font-mono text-[14px] font-bold text-slate-900 focus:outline-none w-full"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs text-slate-600 font-medium">Justificatif numérique (ex: Facture scan, Photo ticket)</label>
-                <input
-                  type="text"
-                  placeholder="Justificatif d'opération"
-                  value={formJustificatif}
-                  onChange={(e) => setFormJustificatif(e.target.value)}
-                  className="border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none w-full text-xs font-mono"
-                />
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex items-center justify-end space-x-2 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="bg-slate-900 hover:bg-slate-800 text-amber-500 text-xs font-bold px-4 py-2 rounded-lg transition-colors border border-slate-800"
-                >
-                  Valider et Soumettre
+                <button onClick={() => setIsModalOpen(false)} className="p-2 rounded-xl hover:bg-slate-100 transition-all">
+                  <X className="h-5 w-5 text-slate-500" />
                 </button>
               </div>
 
+              <div className="mt-4">
+                <div className="flex items-center justify-between max-w-xs mx-auto">
+                  {[1, 2].map((step) => (
+                    <div key={step} className="flex-1 relative">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
+                          currentStep >= step 
+                            ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-md' 
+                            : 'bg-slate-100 text-slate-400'
+                        }`}>
+                          {currentStep > step ? <Check className="h-4 w-4" /> : step}
+                        </div>
+                        <span className={`text-[10px] mt-1 font-medium ${
+                          currentStep >= step ? 'text-amber-600' : 'text-slate-400'
+                        }`}>
+                          {step === 1 ? 'Informations' : 'Montant'}
+                        </span>
+                      </div>
+                      {step < 2 && (
+                        <div className={`absolute top-4 left-[calc(50%+16px)] w-[calc(100%-32px)] h-0.5 transition-all duration-300 ${
+                          currentStep > step ? 'bg-gradient-to-r from-amber-500 to-amber-600' : 'bg-slate-200'
+                        }`} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleFormSubmit}>
+              <div className="p-6">
+                {currentStep === 1 && (
+                  <div className="space-y-5 animate-fade-in-up">
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <Car className="h-4 w-4 text-blue-600" />
+                        <h3 className="text-sm font-bold text-slate-700">Informations de la dépense</h3>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">Date *</label>
+                          <input
+                            type="date"
+                            required
+                            value={formDate}
+                            onChange={(e) => setFormDate(e.target.value)}
+                            className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none transition-all"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">Véhicule *</label>
+                          <select
+                            required
+                            value={formVehiculeId}
+                            onChange={(e) => setFormVehiculeId(e.target.value)}
+                            className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none transition-all"
+                          >
+                            <option value="">-- Sélectionner --</option>
+                            {vehicles.map(v => (
+                              <option key={v.id} value={v.id}>
+                                {v.immatriculation} - {v.marque} {v.modele}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">Type de dépense *</label>
+                          <select
+                            required
+                            value={formTypeCharge}
+                            onChange={(e) => setFormTypeCharge(e.target.value as any)}
+                            className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none transition-all"
+                          >
+                            <option value="Carburant">⛽ Carburant</option>
+                            <option value="Panne mécanique">🔧 Panne mécanique</option>
+                            <option value="Réparation">🛠️ Réparation</option>
+                            <option value="Entretien">🔩 Entretien</option>
+                            <option value="Pneus">🚗 Pneus</option>
+                            <option value="Vidange">💧 Vidange</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">Description *</label>
+                          <textarea
+                            required
+                            rows={3}
+                            placeholder="Décrivez la dépense en détail..."
+                            value={formDescription}
+                            onChange={(e) => setFormDescription(e.target.value)}
+                            className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none transition-all resize-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">Justificatif (optionnel)</label>
+                          <input
+                            type="text"
+                            placeholder="Nom du fichier justificatif"
+                            value={formJustificatif}
+                            onChange={(e) => setFormJustificatif(e.target.value)}
+                            className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none transition-all"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {currentStep === 2 && (
+                  <div className="space-y-5 animate-fade-in-up">
+                    <div className="bg-gradient-to-r from-rose-50 to-orange-50 p-5 rounded-xl">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <TrendingUp className="h-4 w-4 text-rose-600" />
+                        <h3 className="text-sm font-bold text-slate-700">Montant de la dépense</h3>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700 block mb-1">Montant (FCFA) *</label>
+                          <input
+                            type="number"
+                            required
+                            placeholder="0"
+                            value={formMontant}
+                            onChange={(e) => setFormMontant(e.target.value !== "" ? Number(e.target.value) : "")}
+                            className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-lg font-bold text-rose-600 text-center focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none transition-all"
+                          />
+                        </div>
+
+                        <div className="bg-white/50 rounded-lg p-3">
+                          <div className="flex items-start space-x-2">
+                            <Info className="h-4 w-4 text-slate-500 mt-0.5" />
+                            <p className="text-xs text-slate-600">
+                              Le justificatif de cette dépense devra être fourni pour validation.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="sticky bottom-0 bg-white/95 backdrop-blur-sm px-6 py-4 border-t border-slate-100 rounded-b-3xl">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all"
+                  >
+                    Annuler
+                  </button>
+                  
+                  <div className="flex items-center space-x-3">
+                    {currentStep > 1 && (
+                      <button
+                        type="button"
+                        onClick={prevStep}
+                        className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-all flex items-center space-x-1"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        <span>Précédent</span>
+                      </button>
+                    )}
+                    
+                    {currentStep < totalSteps ? (
+                      <button
+                        type="button"
+                        onClick={nextStep}
+                        className="px-6 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 shadow-md hover:shadow-lg transition-all flex items-center space-x-2"
+                      >
+                        <span>Continuer</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="px-8 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white shadow-md hover:shadow-lg transition-all flex items-center space-x-2"
+                      >
+                        <Save className="h-4 w-4" />
+                        <span>Enregistrer</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </form>
           </div>
         </div>
       )}
 
       {/* ========================================================== */}
-      {/* MODAL: COMPREHENSIVE EXPENSE ROW DETAILS                   */}
+      {/* MODAL: DETAILS DÉPENSE - SANS ID */}
       {/* ========================================================== */}
       {selectedExpenseForDetail && (
-        <div className="fixed inset-0 bg-slate-950/70 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-sans">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-lg overflow-hidden animate-scale-up text-left">
+        <div className="fixed inset-0 bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-slide-down">
             
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div className="flex items-center space-x-2">
-                <Wrench className="h-5 w-5 text-rose-500" />
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900">
-                    Fiche Détail du Débours / Charge
-                  </h2>
-                  <p className="text-[10px] text-slate-400 font-mono">
-                    ID Dépense : {selectedExpenseForDetail.id}
-                  </p>
+            <div className="relative">
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-amber-400 to-rose-500" />
+              
+              <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-rose-100 p-2 rounded-xl">
+                      <Receipt className="h-5 w-5 text-rose-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-800">Détail de la dépense</h2>
+                    </div>
+                  </div>
+                  <button onClick={() => setSelectedExpenseForDetail(null)} className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                    <X className="h-5 w-5 text-slate-500" />
+                  </button>
                 </div>
               </div>
-              <button 
-                onClick={() => setSelectedExpenseForDetail(null)}
-                className="text-slate-400 hover:text-slate-600 bg-slate-100 p-1 rounded-full cursor-pointer"
-                title="Fermer"
-              >
-                <X className="h-4 w-4" />
-              </button>
             </div>
 
-            {/* Content body */}
             <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold font-mono">Date déclarée</span>
-                  <p className="text-xs font-semibold text-slate-800 mt-0.5">{selectedExpenseForDetail.date}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50 p-3 rounded-xl">
+                  <p className="text-[10px] text-slate-400 uppercase">Date</p>
+                  <p className="text-sm font-semibold text-slate-800">{selectedExpenseForDetail.date}</p>
                 </div>
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="text-[10px] text-slate-400 uppercase font-bold font-mono">Statut de validation</span>
-                  <div className="mt-1">
-                    <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                      selectedExpenseForDetail.statut === "Validé" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" :
-                      selectedExpenseForDetail.statut === "Refusé" ? "bg-rose-50 text-rose-700 border border-rose-100" : "bg-amber-50 text-amber-700 border border-amber-100"
-                    }`}>
-                      {selectedExpenseForDetail.statut}
-                    </span>
-                  </div>
+                <div className="bg-slate-50 p-3 rounded-xl">
+                  <p className="text-[10px] text-slate-400 uppercase">Statut</p>
+                  <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-bold ${
+                    selectedExpenseForDetail.statut === "Validé" ? 'bg-emerald-100 text-emerald-700' :
+                    selectedExpenseForDetail.statut === "Refusé" ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {selectedExpenseForDetail.statut}
+                  </span>
                 </div>
               </div>
 
-              <div className="border border-slate-100 rounded-xl divide-y divide-slate-100 overflow-hidden">
-                <div className="p-3 flex justify-between items-center text-xs">
-                  <span className="text-slate-500 font-medium">Véhicule (Matricule)</span>
-                  <span className="font-mono font-bold bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]">
-                    {selectedExpenseForDetail.matricule}
-                  </span>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                  <span className="text-sm text-slate-600">Véhicule</span>
+                  <span className="font-bold text-slate-800">{selectedExpenseForDetail.matricule}</span>
                 </div>
-                <div className="p-3 flex justify-between items-center text-xs">
-                  <span className="text-slate-500 font-medium">Type de charge / Catégorie</span>
-                  <span className="px-2 py-0.5 bg-rose-50 text-rose-700 font-semibold rounded text-[10px] font-sans">
+                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                  <span className="text-sm text-slate-600">Type</span>
+                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${getTypeColor(selectedExpenseForDetail.typeCharge)}`}>
                     {selectedExpenseForDetail.typeCharge}
                   </span>
                 </div>
-                <div className="p-3 flex justify-between items-center text-xs">
-                  <span className="text-slate-500 font-medium">Auteur de la déclaration</span>
+                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                  <span className="text-sm text-slate-600">Auteur</span>
                   <span className="font-bold text-slate-800">{selectedExpenseForDetail.nomChauffeur}</span>
                 </div>
-                <div className="p-3 flex justify-between items-center text-xs bg-rose-50/5">
-                  <span className="text-slate-500 font-bold">Montant Moyen Estimé / Réel</span>
-                  <span className="font-mono font-bold text-rose-600 text-sm">{formatFCFA(selectedExpenseForDetail.montant)}</span>
+                <div className="p-3 bg-rose-50 rounded-xl">
+                  <p className="text-[10px] text-rose-600 uppercase font-bold">Montant</p>
+                  <p className="text-xl font-bold text-rose-600">{formatFCFA(selectedExpenseForDetail.montant)}</p>
                 </div>
-                <div className="p-3 flex justify-between items-center text-xs">
-                  <span className="text-slate-500 font-medium">Pièce justificative rattachée</span>
-                  <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono">
-                    {selectedExpenseForDetail.justificatif || "justificatif.jpg"}
-                  </span>
+                <div className="p-3 bg-slate-50 rounded-xl">
+                  <p className="text-[10px] text-slate-400 uppercase font-bold">Description</p>
+                  <p className="text-sm text-slate-700 mt-1">{selectedExpenseForDetail.description}</p>
                 </div>
-              </div>
-
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-150">
-                <span className="text-[10px] text-slate-400 font-bold uppercase block">Description / Observations :</span>
-                <p className="text-xs text-slate-700 mt-1 whitespace-pre-line leading-relaxed">{selectedExpenseForDetail.description}</p>
+                {selectedExpenseForDetail.justificatif && (
+                  <div className="p-3 bg-slate-50 rounded-xl">
+                    <p className="text-[10px] text-slate-400 uppercase font-bold">Justificatif</p>
+                    <p className="text-sm text-slate-700 mt-1 font-mono">{selectedExpenseForDetail.justificatif}</p>
+                  </div>
+                )}
               </div>
 
               {selectedExpenseForDetail.statut === "Refusé" && selectedExpenseForDetail.motifRefus && (
-                <div className="bg-rose-50 border border-rose-100 p-3 rounded-xl">
-                  <span className="text-[10px] text-rose-800 font-bold uppercase block">Motif de Rejet administratif :</span>
-                  <p className="text-xs text-rose-700 italic mt-0.5">"{selectedExpenseForDetail.motifRefus}"</p>
+                <div className="bg-rose-50 p-3 rounded-xl border border-rose-200">
+                  <p className="text-[10px] font-bold text-rose-800 uppercase">Motif du rejet</p>
+                  <p className="text-sm text-rose-700 mt-1">{selectedExpenseForDetail.motifRefus}</p>
                 </div>
               )}
             </div>
 
-            {/* Footer */}
-            <div className="px-6 py-3.5 bg-slate-50/50 border-t border-slate-100 flex justify-end">
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-3xl">
               <button
-                type="button"
                 onClick={() => setSelectedExpenseForDetail(null)}
-                className="bg-slate-900 hover:bg-slate-800 text-amber-500 text-xs font-bold px-4 py-2 rounded-lg cursor-pointer transition-colors border border-slate-800"
+                className="w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-2.5 rounded-xl transition-all"
               >
                 Fermer
               </button>
             </div>
-
           </div>
         </div>
       )}
 
       {/* ========================================================== */}
-      {/* MODAL: VALIDER OU REJETER LA DEMANDE (CUSTOM STATUT)        */}
+      {/* MODAL: VALIDER OU REJETER */}
       {/* ========================================================== */}
       {decisionModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/75 z-50 flex items-center justify-center p-4 backdrop-blur-xs font-sans">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden animate-scale-up text-left">
+        <div className="fixed inset-0 bg-gradient-to-br from-slate-950/95 via-slate-900/95 to-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-slide-down">
             
-            {/* Upper spacing & Center icon as shown in image */}
-            <div className="pt-8 pb-3 px-6 flex flex-col items-center border-b border-slate-50">
-              <div className="h-16 w-16 bg-amber-500 rounded-full flex items-center justify-center shadow-lg shadow-amber-500/20 text-white mb-4">
-                <span className="text-3xl font-extrabold font-sans">?</span>
-              </div>
-              <h2 className="text-lg font-bold text-slate-800 text-center">
-                Valider ou rejeter la demande
-              </h2>
-            </div>
-
-            {/* Content Body */}
-            <div className="p-6 space-y-5">
+            <div className="relative">
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-amber-400 to-rose-500" />
               
-              {/* Decision Section */}
-              <div className="space-y-2">
-                <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-600">
-                  <Tag className="h-3.5 w-3.5 text-indigo-505" />
-                  <span>Décision <span className="text-rose-500">*</span></span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Clickable Card: Accepter */}
-                  <button
-                    type="button"
-                    onClick={() => setDecisionValue("APPROVE")}
-                    className={`flex items-center space-x-2.5 p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                      decisionValue === "APPROVE"
-                        ? "border-indigo-600 bg-indigo-50/10 ring-2 ring-indigo-500/15"
-                        : "border-slate-200 bg-white hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center shrink-0 ${
-                      decisionValue === "APPROVE" ? "border-indigo-600 animate-pulse-subtle" : "border-slate-300"
-                    }`}>
-                      {decisionValue === "APPROVE" && (
-                        <div className="h-2 w-2 rounded-full bg-indigo-600" />
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-1 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
-                      <span className="bg-emerald-500 text-white h-3.5 w-3.5 rounded-full flex items-center justify-center text-[8px] font-extrabold">✓</span>
-                      <span>Accepter</span>
-                    </div>
-                  </button>
-
-                  {/* Clickable Card: Rejeter */}
-                  <button
-                    type="button"
-                    onClick={() => setDecisionValue("REJECT")}
-                    className={`flex items-center space-x-2.5 p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                      decisionValue === "REJECT"
-                        ? "border-rose-600 bg-rose-50/10 ring-2 ring-rose-500/15"
-                        : "border-slate-200 bg-white hover:bg-slate-50"
-                    }`}
-                  >
-                    <div className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center shrink-0 ${
-                      decisionValue === "REJECT" ? "border-rose-600 animate-pulse-subtle" : "border-slate-300"
-                    }`}>
-                      {decisionValue === "REJECT" && (
-                        <div className="h-2 w-2 rounded-full bg-rose-600" />
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-1 bg-rose-50 text-rose-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
-                      <span className="bg-rose-500 text-white h-3.5 w-3.5 rounded-full flex items-center justify-center text-[8px] font-extrabold">✗</span>
-                      <span>Rejeter</span>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Observation Section */}
-              <div className="space-y-2">
-                <div className="flex items-center space-x-1.5 text-xs font-bold text-slate-600">
-                  <MessageSquare className="h-3.5 w-3.5 text-indigo-505" />
-                  <span>Observation</span>
-                </div>
-                <div className="relative">
-                  <textarea
-                    rows={4}
-                    placeholder="Motif de la décision (obligatoire pour rejet)..."
-                    value={decisionObservation}
-                    onChange={(e) => setDecisionObservation(e.target.value)}
-                    className="w-full text-xs font-medium text-slate-800 placeholder-slate-400 bg-white border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 resize-none min-h-[100px]"
-                  />
-                  <div className="absolute bottom-2 right-2 flex flex-col justify-end items-end pointer-events-none opacity-20">
-                    <svg width="8" height="8" viewBox="0 0 8 8" className="text-slate-900 fill-current">
-                      <path d="M6 0 L8 0 L8 8 L0 8 L0 6 L4 6 L4 4 L6 4 Z" />
-                    </svg>
+              <div className="px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-amber-100 p-2 rounded-xl">
+                    <RefreshCw className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-800">Validation de la dépense</h2>
+                    <p className="text-xs text-slate-500">Prenez une décision</p>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Actions Footer Container */}
-              <div className="flex justify-end items-center space-x-2.5 pt-4 border-t border-slate-100">
+            <div className="p-6 space-y-5">
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => {
-                    setDecisionModalOpen(false);
-                    setDecisionTargetId(null);
-                  }}
-                  className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold px-4 py-2 rounded-xl transition-all flex items-center space-x-1 cursor-pointer"
+                  onClick={() => setDecisionValue("APPROVE")}
+                  className={`flex items-center justify-center space-x-2 p-4 rounded-xl border-2 transition-all ${
+                    decisionValue === "APPROVE"
+                      ? "border-emerald-500 bg-emerald-50"
+                      : "border-slate-200 hover:border-emerald-300"
+                  }`}
                 >
-                  <X className="h-3.5 w-3.5 animate-pulse-subtle" />
-                  <span>Annuler</span>
+                  <Check className="h-5 w-5 text-emerald-600" />
+                  <span className="font-bold text-emerald-700">Accepter</span>
                 </button>
                 <button
                   type="button"
-                  onClick={handleConfirmDecision}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all flex items-center space-x-1 cursor-pointer shadow-md shadow-indigo-600/10"
+                  onClick={() => setDecisionValue("REJECT")}
+                  className={`flex items-center justify-center space-x-2 p-4 rounded-xl border-2 transition-all ${
+                    decisionValue === "REJECT"
+                      ? "border-rose-500 bg-rose-50"
+                      : "border-slate-200 hover:border-rose-300"
+                  }`}
                 >
-                  <Check className="h-3.5 w-3.5 stroke-[2.5]" />
-                  <span>Confirmer</span>
+                  <X className="h-5 w-5 text-rose-600" />
+                  <span className="font-bold text-rose-700">Refuser</span>
                 </button>
               </div>
 
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-2">Motif (obligatoire pour refus)</label>
+                <textarea
+                  rows={3}
+                  placeholder="Expliquez votre décision..."
+                  value={decisionObservation}
+                  onChange={(e) => setDecisionObservation(e.target.value)}
+                  className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 focus:outline-none transition-all resize-none"
+                />
+              </div>
             </div>
 
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 rounded-b-3xl flex justify-end space-x-3">
+              <button
+                onClick={() => setDecisionModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleConfirmDecision}
+                className="px-5 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-md hover:shadow-lg transition-all"
+              >
+                Confirmer
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes slide-down {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fade-in-up {
+          animation: fade-in-up 0.4s ease-out;
+        }
+        
+        .animate-slide-down {
+          animation: slide-down 0.3s ease-out;
+        }
+        
+        .animate-fade-in {
+          animation: fade-in-up 0.3s ease-out;
+        }
+      `}</style>
 
     </div>
   );
