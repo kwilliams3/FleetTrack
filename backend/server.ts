@@ -1,8 +1,9 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import apiRouter from "./routes/index";
-import sql from 'mssql';
+import mysql from 'mysql2/promise';
 
 const app = express();
 const PORT = 3000;
@@ -17,35 +18,48 @@ app.use("/api", apiRouter);
 // Serve uploads statically
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-// Configuration SQL Server
+// Configuration MySQL
 const dbConfig = {
-  server: 'KING-WILLIAMS',
-  port: 1433,
-  database: 'FleetTrack',
-  user: 'sa',
-  password: 'AZERTY123',
-  options: {
-    encrypt: false,
-    trustServerCertificate: true,
-    connectTimeout: 4000 // 4 seconds timeout to avoid blocking container previews if local SQL is down
-  }
+  host: process.env.DB_HOST || 'KING-WILLIAMS',
+  port: parseInt(process.env.DB_PORT || '3306'),
+  database: process.env.DB_DATABASE || 'FleetTrack',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'AZERTY123',
+  connectTimeout: 4000
 };
 
 // Pool de connexion global
-let poolConnection: sql.ConnectionPool | null = null;
+let poolConnection: mysql.Pool | null = null;
 
 // Fonction pour initialiser la connexion DB
 async function initDatabaseConnection() {
   try {
-    console.log(`🔌 Connexion à SQL Server à l'adresse ${dbConfig.server}:${dbConfig.port}...`);
-    poolConnection = await sql.connect(dbConfig);
-    console.log('✅ SUCCÈS: Connecté à SQL Server!');
-    const result = await poolConnection.request().query('SELECT DB_NAME() as databaseName, GETDATE() as serverTime');
-    console.log(`📊 Base de données active: ${result.recordset[0].databaseName}`);
-    console.log(`⏰ Heure serveur: ${result.recordset[0].serverTime}`);
+    const host = dbConfig.host;
+    console.log(`🔌 Connexion à MySQL à l'adresse ${host}:${dbConfig.port}...`);
+    
+    // Auto-create DB if not exists
+    try {
+      const conn = await mysql.createConnection({
+        host,
+        port: dbConfig.port,
+        user: dbConfig.user,
+        password: dbConfig.password,
+        connectTimeout: 4000
+      });
+      await conn.query(`CREATE DATABASE IF NOT EXISTS \`${dbConfig.database}\``);
+      await conn.end();
+    } catch (e: any) {
+      console.warn("⚠️ Impossible de s'assurer de l'existence de la base :", e.message);
+    }
+
+    poolConnection = mysql.createPool(dbConfig);
+    const [rows]: any = await poolConnection.query('SELECT DATABASE() as databaseName, NOW() as serverTime');
+    console.log('✅ SUCCÈS: Connecté à MySQL!');
+    console.log(`📊 Base de données active: ${rows[0].databaseName}`);
+    console.log(`⏰ Heure serveur: ${rows[0].serverTime}`);
     return true;
   } catch (error: any) {
-    console.warn('❌ ÉCHEC: SQL Server non connecté.');
+    console.warn('❌ ÉCHEC: MySQL non connecté.');
     console.warn(`Erreur: ${error.message}`);
     console.warn('👉 Le serveur utilise la base cloud Firestore de secours pour la prévisualisation.');
     return false;
@@ -57,13 +71,14 @@ async function initDatabaseConnection() {
 ========================================= */
 async function startServer() {
   // Tester la connexion DB au démarrage
-  console.log('🔄 Test de connexion à SQL Server...');
+  console.log('🔄 Test de connexion à MySQL...');
   const dbConnected = await initDatabaseConnection();
   
   if (!dbConnected) {
     console.warn('⚠️  Le serveur va démarrer mais sans accès direct à la base de données locale KING-WILLIAMS.');
   }
 
+  const distPath = path.join(process.cwd(), "dist");
   const isProd = process.env.NODE_ENV === "production";
 
   if (!isProd) {
@@ -76,10 +91,32 @@ async function startServer() {
     console.log("Vite development server middleware loaded successfully.");
   } else {
     // Production static builds serving
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    console.log("Serving compiled static assets from:", distPath);
+    
+    // Serve static files with headers to prevent aggressive caching of index.html
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (path.basename(filePath) === 'index.html') {
+          res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+        }
+      }
+    }));
+    
+    // Catch-all route for Single Page Application routing
     app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      // If the request contains a file extension (e.g. .ts, .tsx, .js, .css, etc.), and was not served by express.static,
+      // it is a missing asset. Return 404 instead of serving index.html as text/html to avoid MIME type block errors.
+      const ext = path.extname(req.path).toLowerCase();
+      if (ext && ext !== '.html') {
+        res.status(404).send(`Asset not found: ${req.path}`);
+        return;
+      }
+      
+      res.sendFile(path.join(distPath, "index.html"), {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, private'
+        }
+      });
     });
     console.log("Serving compiled static assets from :", distPath);
   }
