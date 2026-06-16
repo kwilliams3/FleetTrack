@@ -1,5 +1,5 @@
 import express from "express";
-import { getDBData, exportSQL, resetDB } from "../controllers/dbController";
+import { getDBData, exportSQL, exportMySQL, resetDB } from "../controllers/dbController";
 import { addOrUpdateVehicle, deleteVehicle } from "../controllers/vehicleController";
 import { addOrUpdateChauffeur, deleteChauffeur, assignVehicle } from "../controllers/chauffeurController";
 import { declarePayment, validatePayment } from "../controllers/paymentController";
@@ -12,6 +12,7 @@ const router = express.Router();
 // General Database
 router.get("/data", getDBData);
 router.get("/export-sql", exportSQL);
+router.get("/export-mysql", exportMySQL);
 router.post("/reset", resetDB);
 
 // Users (Admin Only / Authentication operation)

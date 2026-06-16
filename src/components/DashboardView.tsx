@@ -834,12 +834,18 @@ export default function DashboardView({
           {/* Driver Left Card: Assigned vehicle & stats */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 space-y-6 md:col-span-1">
             <div className="text-center space-y-3">
-              <img 
-                src={associatedDriver?.photo || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200"} 
-                alt="Avatar" 
-                className="h-20 w-20 rounded-full mx-auto object-cover border-2 border-amber-500 shadow-xs"
-                referrerPolicy="no-referrer"
-              />
+              {associatedDriver?.photo ? (
+                <img 
+                  src={associatedDriver.photo} 
+                  alt="Avatar" 
+                  className="h-20 w-20 rounded-full mx-auto object-cover border-2 border-amber-500 shadow-xs"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="h-20 w-20 rounded-full bg-amber-100 border-2 border-amber-500 text-amber-800 font-extrabold text-lg flex items-center justify-center mx-auto shadow-xs font-sans uppercase">
+                  {associatedDriver ? `${associatedDriver.prenom?.[0] || ""}${associatedDriver.nom?.[0] || ""}` : "CH"}
+                </div>
+              )}
               <div>
                 <h3 className="text-base font-bold font-sans text-slate-900">
                   {associatedDriver ? `${associatedDriver.prenom} ${associatedDriver.nom}` : "Chauffeur Invité"}

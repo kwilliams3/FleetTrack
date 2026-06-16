@@ -1,6 +1,51 @@
 import { Request, Response } from "express";
 import { readDB, writeDB } from "../models/db";
 import { Chauffeur, AffectationHistory } from "../../src/types";
+import fs from "fs";
+import path from "path";
+
+// Helper function to decode and save a base64 chauffeur profile photo to the uploads/chauffeurs folder
+const saveChauffeurPhoto = (chauffeurId: string, photoStr: string): string => {
+  if (!photoStr) return "";
+  if (!photoStr.startsWith("data:image/")) {
+    // If it's already a URL, return it as-is
+    return photoStr;
+  }
+
+  try {
+    const matches = photoStr.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return photoStr; // fallback if regex fails
+    }
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+    const buffer = Buffer.from(base64Data, "base64");
+
+    // Determine secure file extension
+    let extension = "png";
+    if (mimeType.includes("jpeg") || mimeType.includes("jpg")) {
+      extension = "jpg";
+    } else if (mimeType.includes("gif")) {
+      extension = "gif";
+    } else if (mimeType.includes("webp")) {
+      extension = "webp";
+    }
+
+    const filename = `chauffeur-${chauffeurId}-${Date.now()}.${extension}`;
+    const targetDir = path.join(process.cwd(), "uploads", "chauffeurs");
+    
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    fs.writeFileSync(path.join(targetDir, filename), buffer);
+    return `/uploads/chauffeurs/${filename}`;
+  } catch (err) {
+    console.error("Erreur lors de la sauvegarde de la photo du chauffeur:", err);
+    return "";
+  }
+};
 
 export const addOrUpdateChauffeur = async (req: Request, res: Response) => {
   try {
@@ -14,7 +59,13 @@ export const addOrUpdateChauffeur = async (req: Request, res: Response) => {
     const existingIndex = db.chauffeurs.findIndex(c => c.id === form.id);
     if (existingIndex >= 0) {
       const oldVehiculeId = db.chauffeurs[existingIndex].vehiculeId;
-      db.chauffeurs[existingIndex] = { ...db.chauffeurs[existingIndex], ...form };
+      const processedPhoto = saveChauffeurPhoto(form.id, form.photo || "");
+      
+      db.chauffeurs[existingIndex] = { 
+        ...db.chauffeurs[existingIndex], 
+        ...form,
+        photo: processedPhoto
+      };
       
       // Handle vehicle assignment changes if any
       if (oldVehiculeId !== form.vehiculeId) {
@@ -36,10 +87,12 @@ export const addOrUpdateChauffeur = async (req: Request, res: Response) => {
       }
     } else {
       const chauffeurId = "ch-" + Math.random().toString(36).substring(2, 9);
+      const processedPhoto = saveChauffeurPhoto(chauffeurId, form.photo || "");
+      
       const newChauffeur: Chauffeur = {
         ...form,
         id: chauffeurId,
-        photo: form.photo || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200",
+        photo: processedPhoto,
         isActive: form.isActive !== undefined ? form.isActive : true
       };
       db.chauffeurs.push(newChauffeur);

@@ -386,12 +386,18 @@ export default function VehiclesView({
                   <p className="text-[9px] text-slate-400 font-bold font-mono uppercase tracking-wider">Directeur responsable</p>
                   {assignedDriver ? (
                     <div className="flex items-center space-x-2 text-xs font-sans text-slate-800">
-                      <img 
-                        src={assignedDriver.photo} 
-                        alt="photo" 
-                        className="h-6 w-6 rounded-full object-cover border border-amber-400 shrink-0"
-                        referrerPolicy="no-referrer"
-                      />
+                      {assignedDriver.photo ? (
+                        <img 
+                          src={assignedDriver.photo} 
+                          alt="photo" 
+                          className="h-6 w-6 rounded-full object-cover border border-amber-400 shrink-0"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="h-6 w-6 rounded-full bg-amber-100 border border-amber-400 text-amber-800 font-bold text-[9px] flex items-center justify-center shrink-0 font-sans uppercase">
+                          {(assignedDriver.prenom?.[0] || "")}{(assignedDriver.nom?.[0] || "")}
+                        </div>
+                      )}
                       <div>
                         <span className="font-semibold block">{assignedDriver.prenom} {assignedDriver.nom}</span>
                         <span className="text-[10px] text-slate-400 block -mt-0.5">{assignedDriver.telephone}</span>

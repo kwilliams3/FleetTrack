@@ -221,3 +221,226 @@ GO
 
   return script;
 }
+
+export function generateMySQLScript(db: AppDatabase): string {
+  let script = `/* =====================================================================
+   SCRIPT DE CREATION ET DE REMPLISSAGE DE SECURITE - MYSQL
+   Généré le : 2026-06-15 (Date Système de la Flotte)
+   Cible : Base de Données "FleetTrack"
+======================================================================== */
+
+-- 1. Création de la Base de Données
+CREATE DATABASE IF NOT EXISTS \`FleetTrack\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE \`FleetTrack\`;
+
+-- Désactiver les contraintes temporairement pour l'insertion propre
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- Supprimer les tables si elles existent
+DROP TABLE IF EXISTS \`ChargesEtDepenses\`;
+DROP TABLE IF EXISTS \`VersementsJournaliers\`;
+DROP TABLE IF EXISTS \`ActivitesJournalieres\`;
+DROP TABLE IF EXISTS \`AffectationsChauffeurVehicule\`;
+DROP TABLE IF EXISTS \`DocumentsVehicules\`;
+DROP TABLE IF EXISTS \`Utilisateurs\`;
+DROP TABLE IF EXISTS \`Chauffeurs\`;
+DROP TABLE IF EXISTS \`Vehicules\`;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- 2. Création des Tables Relationnelles (Conforme MySQL)
+
+-- Table \`Utilisateurs\`
+CREATE TABLE \`Utilisateurs\` (
+    \`Id\` VARCHAR(50) NOT NULL PRIMARY KEY,
+    \`NomComplet\` VARCHAR(150) NOT NULL,
+    \`Identifiant\` VARCHAR(50) NOT NULL UNIQUE,
+    \`Role\` VARCHAR(20) NOT NULL CHECK (\`Role\` IN ('ADMIN', 'MANAGER')),
+    \`EstActif\` TINYINT(1) NOT NULL DEFAULT 1,
+    \`Telephone\` VARCHAR(30) NULL,
+    \`ChauffeurAssocieId\` VARCHAR(50) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table \`Chauffeurs\`
+CREATE TABLE \`Chauffeurs\` (
+    \`Id\` VARCHAR(50) NOT NULL PRIMARY KEY,
+    \`Nom\` VARCHAR(100) NOT NULL,
+    \`Prenom\` VARCHAR(100) NOT NULL,
+    \`Telephone\` VARCHAR(30) NOT NULL,
+    \`Adresse\` VARCHAR(250) NOT NULL,
+    \`NumeroPermis\` VARCHAR(50) NOT NULL,
+    \`ExpirationPermis\` DATE NOT NULL,
+    \`PhotoUrl\` VARCHAR(250) NULL,
+    \`EstActif\` TINYINT(1) NOT NULL DEFAULT 1,
+    \`VehiculeAttribueId\` VARCHAR(50) NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table \`Vehicules\`
+CREATE TABLE \`Vehicules\` (
+    \`Id\` VARCHAR(50) NOT NULL PRIMARY KEY,
+    \`Immatriculation\` VARCHAR(30) NOT NULL UNIQUE,
+    \`Marque\` VARCHAR(50) NOT NULL,
+    \`Modele\` VARCHAR(50) NOT NULL,
+    \`Annee\` INT NULL,
+    \`Couleur\` VARCHAR(30) NULL,
+    \`NumeroChassis\` VARCHAR(80) NULL,
+    \`Etat\` VARCHAR(20) NOT NULL CHECK (\`Etat\` IN ('excellent', 'bon', 'moyen', 'en_panne', 'en_reparation')),
+    \`DateAcquisition\` DATE NULL,
+    \`MontantJournalier\` DECIMAL(18, 2) NOT NULL DEFAULT 10000.00
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table \`DocumentsVehicules\`
+CREATE TABLE \`DocumentsVehicules\` (
+    \`Id\` INT AUTO_INCREMENT PRIMARY KEY,
+    \`VehiculeId\` VARCHAR(50) NOT NULL,
+    \`TypeDocument\` VARCHAR(50) NOT NULL CHECK (\`TypeDocument\` IN ('Carte Grise', 'Assurance', 'Visite Technique', 'Licence Transport')),
+    \`NumeroDocument\` VARCHAR(50) NOT NULL,
+    \`DateExpiration\` DATE NOT NULL,
+    \`FichierNom\` VARCHAR(150) NULL,
+    CONSTRAINT \`fk_documents_vehicle\` FOREIGN KEY (\`VehiculeId\`) REFERENCES \`Vehicules\` (\`Id\`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table \`AffectationsChauffeurVehicule\`
+CREATE TABLE \`AffectationsChauffeurVehicule\` (
+    \`Id\` VARCHAR(50) NOT NULL PRIMARY KEY,
+    \`VehiculeId\` VARCHAR(50) NOT NULL,
+    \`ChauffeurId\` VARCHAR(50) NOT NULL,
+    \`DateDebut\` DATE NOT NULL,
+    \`DateFin\` DATE NULL,
+    \`Statut\` VARCHAR(20) NOT NULL CHECK (\`Statut\` IN ('En cours', 'Historique')),
+    \`Remarque\` VARCHAR(500) NULL,
+    CONSTRAINT \`fk_affectations_vehicle\` FOREIGN KEY (\`VehiculeId\`) REFERENCES \`Vehicules\` (\`Id\`),
+    CONSTRAINT \`fk_affectations_chauffeur\` FOREIGN KEY (\`ChauffeurId\`) REFERENCES \`Chauffeurs\` (\`Id\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table \`ActivitesJournalieres\`
+CREATE TABLE \`ActivitesJournalieres\` (
+    \`Id\` VARCHAR(50) NOT NULL PRIMARY KEY,
+    \`DateActivite\` DATE NOT NULL,
+    \`ChauffeurId\` VARCHAR(50) NOT NULL,
+    \`VehiculeId\` VARCHAR(50) NOT NULL,
+    \`Present\` TINYINT(1) NOT NULL DEFAULT 1,
+    \`HeureDebut\` VARCHAR(10) NULL,
+    \`HeureFin\` VARCHAR(10) NULL,
+    \`KilometrageJournalier\` INT NULL,
+    \`EtatVehicule\` VARCHAR(100) NULL,
+    \`Observations\` VARCHAR(500) NULL,
+    CONSTRAINT \`fk_activites_chauffeur\` FOREIGN KEY (\`ChauffeurId\`) REFERENCES \`Chauffeurs\` (\`Id\`),
+    CONSTRAINT \`fk_activites_vehicle\` FOREIGN KEY (\`VehiculeId\`) REFERENCES \`Vehicules\` (\`Id\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table \`VersementsJournaliers\`
+CREATE TABLE \`VersementsJournaliers\` (
+    \`Id\` VARCHAR(50) NOT NULL PRIMARY KEY,
+    \`DateVersement\` DATE NOT NULL,
+    \`VehiculeId\` VARCHAR(50) NOT NULL,
+    \`ChauffeurId\` VARCHAR(50) NOT NULL,
+    \`MontantAttendu\` DECIMAL(18, 2) NOT NULL,
+    \`MontantVerse\` DECIMAL(18, 2) NOT NULL,
+    \`Ecart\` DECIMAL(18, 2) NOT NULL,
+    \`MoyenPaiement\` VARCHAR(50) NOT NULL CHECK (\`MoyenPaiement\` IN ('MTN Mobile Money', 'Orange Money', 'Espèces (Cash)')),
+    \`StatutValidation\` VARCHAR(25) NOT NULL CHECK (\`StatutValidation\` IN ('En attente', 'Validé', 'Refusé')),
+    \`Provenance\` VARCHAR(20) NOT NULL CHECK (\`Provenance\` IN ('Chauffeur', 'Administration')),
+    \`MotifRefus\` VARCHAR(250) NULL,
+    CONSTRAINT \`fk_versements_vehicle\` FOREIGN KEY (\`VehiculeId\`) REFERENCES \`Vehicules\` (\`Id\`),
+    CONSTRAINT \`fk_versements_chauffeur\` FOREIGN KEY (\`ChauffeurId\`) REFERENCES \`Chauffeurs\` (\`Id\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Table \`ChargesEtDepenses\`
+CREATE TABLE \`ChargesEtDepenses\` (
+    \`Id\` VARCHAR(50) NOT NULL PRIMARY KEY,
+    \`DateDepense\` DATE NOT NULL,
+    \`VehiculeId\` VARCHAR(50) NOT NULL,
+    \`ChauffeurId\` VARCHAR(50) NOT NULL,
+    \`TypeCharge\` VARCHAR(100) NOT NULL CHECK (\`TypeCharge\` IN ('Panne mécanique', 'Réparation', 'Entretien', 'Carburant', 'Pneus', 'Vidange', 'Pièces de rechange', 'Autre')),
+    \`Description\` VARCHAR(500) NOT NULL,
+    \`Montant\` DECIMAL(18, 2) NOT NULL,
+    \`JustificatifNom\` VARCHAR(150) NULL,
+    \`StatutValidation\` VARCHAR(25) NOT NULL CHECK (\`StatutValidation\` IN ('En attente', 'Validé', 'Refusé')),
+    \`MotifRefus\` VARCHAR(250) NULL,
+    CONSTRAINT \`fk_charges_vehicle\` FOREIGN KEY (\`VehiculeId\`) REFERENCES \`Vehicules\` (\`Id\`),
+    CONSTRAINT \`fk_charges_chauffeur\` FOREIGN KEY (\`ChauffeurId\`) REFERENCES \`Chauffeurs\` (\`Id\`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3. Insertion des Données Réelles de l'Application
+
+`;
+
+  // Insert users
+  db.users.forEach(u => {
+    script += `INSERT INTO \`Utilisateurs\` (\`Id\`, \`NomComplet\`, \`Identifiant\`, \`Role\`, \`EstActif\`, \`Telephone\`, \`ChauffeurAssocieId\`) VALUES ('${u.id}', '${u.name.replace(/'/g, "''")}', '${u.username}', '${u.role}', ${u.isActive ? 1 : 0}, ${u.phone ? "'" + u.phone + "'" : "NULL"}, NULL);\n`;
+  });
+  script += "\n";
+
+  // Insert chauffeurs
+  db.chauffeurs.forEach(c => {
+    script += `INSERT INTO \`Chauffeurs\` (\`Id\`, \`Nom\`, \`Prenom\`, \`Telephone\`, \`Adresse\`, \`NumeroPermis\`, \`ExpirationPermis\`, \`PhotoUrl\`, \`EstActif\`, \`VehiculeAttribueId\`) VALUES ('${c.id}', '${c.nom.replace(/'/g, "''")}', '${c.prenom.replace(/'/g, "''")}', '${c.telephone}', '${c.adresse.replace(/'/g, "''")}', '${c.numPermis}', '${c.expPermis}', '${c.photo}', ${c.isActive ? 1 : 0}, ${c.vehiculeId ? "'" + c.vehiculeId + "'" : "NULL"});\n`;
+  });
+  script += "\n";
+
+  // Insert vehicles
+  db.vehicles.forEach(v => {
+    script += `INSERT INTO \`Vehicules\` (\`Id\`, \`Immatriculation\`, \`Marque\`, \`Modele\`, \`Annee\`, \`Couleur\`, \`NumeroChassis\`, \`Etat\`, \`DateAcquisition\`, \`MontantJournalier\`) VALUES ('${v.id}', '${v.immatriculation}', '${v.marque.replace(/'/g, "''")}', '${v.modele.replace(/'/g, "''")}', ${v.annee || "NULL"}, ${v.couleur ? "'" + v.couleur.replace(/'/g, "''") + "'" : "NULL"}, ${v.chassis ? "'" + v.chassis + "'" : "NULL"}, '${v.etat}', ${v.dateAcquisition ? "'" + v.dateAcquisition + "'" : "NULL"}, ${v.montantJournalier});\n`;
+  });
+  script += "\n";
+
+  // Insert vehicle documents
+  db.vehicles.forEach(v => {
+    const docKeys = ['carteGrise', 'assurance', 'visiteTechnique', 'licenceTransport'];
+    docKeys.forEach(k => {
+      const doc = (v.documents as any)[k];
+      if (doc && doc.numero) {
+        const typeLabel = k === 'carteGrise' ? 'Carte Grise' : k === 'assurance' ? 'Assurance' : k === 'visiteTechnique' ? 'Visite Technique' : 'Licence Transport';
+        script += `INSERT INTO \`DocumentsVehicules\` (\`VehiculeId\`, \`TypeDocument\`, \`NumeroDocument\`, \`DateExpiration\`, \`FichierNom\`) VALUES ('${v.id}', '${typeLabel}', '${doc.numero}', '${doc.dateExpiration}', ${doc.nomFichier ? "'" + doc.nomFichier.replace(/'/g, "''") + "'" : "NULL"});\n`;
+      }
+    });
+  });
+  script += "\n";
+
+  // Insert assignments
+  db.assignments.forEach(a => {
+    script += `INSERT INTO \`AffectationsChauffeurVehicule\` (\`Id\`, \`VehiculeId\`, \`ChauffeurId\`, \`DateDebut\`, \`DateFin\`, \`Statut\`, \`Remarque\`) VALUES ('${a.id}', '${a.vehiculeId}', '${a.chauffeurId}', '${a.dateDebut}', ${a.dateFin ? "'" + a.dateFin + "'" : "NULL"}, '${a.statut}', ${a.remarque ? "'" + a.remarque.replace(/'/g, "''") + "'" : "NULL"});\n`;
+  });
+  script += "\n";
+
+  // Insert activities
+  db.activities.forEach(ac => {
+    script += `INSERT INTO \`ActivitesJournalieres\` (\`Id\`, \`DateActivite\`, \`ChauffeurId\`, \`VehiculeId\`, \`Present\`, \`HeureDebut\`, \`HeureFin\`, \`KilometrageJournalier\`, \`EtatVehicule\`, \`Observations\`) VALUES ('${ac.id}', '${ac.date}', '${ac.chauffeurId}', '${ac.vehiculeId}', ${ac.present ? 1 : 0}, ${ac.heureDebut ? "'" + ac.heureDebut + "'" : "NULL"}, ${ac.heureFin ? "'" + ac.heureFin + "'" : "NULL"}, ${ac.kilometrageJournalier || "NULL"}, ${ac.etatVehicule ? "'" + ac.etatVehicule.replace(/'/g, "''") + "'" : "NULL"}, ${ac.observations ? "'" + ac.observations.replace(/'/g, "''") + "'" : "NULL"});\n`;
+  });
+  script += "\n";
+
+  // Insert payments
+  db.payments.forEach(p => {
+    script += `INSERT INTO \`VersementsJournaliers\` (\`Id\`, \`DateVersement\`, \`VehiculeId\`, \`ChauffeurId\`, \`MontantAttendu\`, \`MontantVerse\`, \`Ecart\`, \`MoyenPaiement\`, \`StatutValidation\`, \`Provenance\`, \`MotifRefus\`) VALUES ('${p.id}', '${p.date}', '${p.vehiculeId}', '${p.chauffeurId}', ${p.montantAttendu}, ${p.montantVerse}, ${p.ecart}, '${p.moyenPaiement}', '${p.statut}', '${p.provenance}', ${p.motifRefus ? "'" + p.motifRefus.replace(/'/g, "''") + "'" : "NULL"});\n`;
+  });
+  script += "\n";
+
+  // Insert expenses
+  db.expenses.forEach(c => {
+    script += `INSERT INTO \`ChargesEtDepenses\` (\`Id\`, \`DateDepense\`, \`VehiculeId\`, \`ChauffeurId\`, \`TypeCharge\`, \`Description\`, \`Montant\`, \`JustificatifNom\`, \`StatutValidation\`, \`MotifRefus\`) VALUES ('${c.id}', '${c.date}', '${c.vehiculeId}', '${c.chauffeurId}', '${c.typeCharge}', '${c.description.replace(/'/g, "''")}', ${c.montant}, ${c.justificatif ? "'" + c.justificatif.replace(/'/g, "''") + "'" : "NULL"}, '${c.statut}', ${c.motifRefus ? "'" + c.motifRefus.replace(/'/g, "''") + "'" : "NULL"});\n`;
+  });
+  script += "\n";
+
+  // Add some simple audit queries at the bottom
+  script += `/* =====================================================================
+   REQUETES DE SYNTHESE ET DE RENTABILITE (MYSQL)
+======================================================================== */
+
+-- 1. Calcul de la rentabilité globale par véhicule
+SELECT 
+    v.Immatriculation,
+    v.Marque,
+    v.Modele,
+    v.MontantJournalier AS \`Taux Journalier\`,
+    COALESCE(SUM(p.MontantVerse), 0) AS \`Total Versements (FCFA)\`,
+    COALESCE(SUM(e.Montant), 0) AS \`Total Dépenses (FCFA)\`,
+    (COALESCE(SUM(p.MontantVerse), 0) - COALESCE(SUM(e.Montant), 0)) AS \`Rentabilité Net (FCFA)\`
+FROM \`Vehicules\` v
+LEFT JOIN \`VersementsJournaliers\` p ON v.Id = p.VehiculeId AND p.StatutValidation = 'Validé'
+LEFT JOIN \`ChargesEtDepenses\` e ON v.Id = e.VehiculeId AND e.StatutValidation = 'Validé'
+GROUP BY v.Id, v.Immatriculation, v.Marque, v.Modele, v.MontantJournalier
+ORDER BY \`Rentabilité Net (FCFA)\` DESC;
+`;
+
+  return script;
+}

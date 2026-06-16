@@ -112,7 +112,7 @@ export default function ChauffeursView({
       adresse: formAdresse,
       numPermis: formNumPermis,
       expPermis: formExpPermis,
-      photo: formPhoto || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200",
+      photo: formPhoto || "",
       isActive: formIsActive,
       vehiculeId: formVehiculeId || undefined
     };
@@ -201,12 +201,18 @@ export default function ChauffeursView({
                 
                 {/* Photo and Status header */}
                 <div className="flex items-center space-x-4">
-                  <img 
-                    src={c.photo} 
-                    alt={`${c.prenom} ${c.nom}`} 
-                    className="h-14 w-14 rounded-full object-cover border-2 border-amber-500 shadow-xs shrink-0"
-                    referrerPolicy="no-referrer"
-                  />
+                  {c.photo ? (
+                    <img 
+                      src={c.photo} 
+                      alt={`${c.prenom} ${c.nom}`} 
+                      className="h-14 w-14 rounded-full object-cover border-2 border-amber-500 shadow-xs shrink-0"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="h-14 w-14 rounded-full bg-amber-100 border-2 border-amber-500 text-amber-800 font-extrabold text-sm flex items-center justify-center shadow-xs shrink-0 font-sans">
+                      {(c.prenom?.[0] || "").toUpperCase()}{(c.nom?.[0] || "").toUpperCase()}
+                    </div>
+                  )}
                   <div className="space-y-0.5">
                     <h3 className="text-sm font-bold text-slate-900 font-sans">{c.prenom} {c.nom}</h3>
                     
